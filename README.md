@@ -1,10 +1,14 @@
 # Codex 重置监控面板（OpenAI Reset Monitoring）
 
+中文 | [English](README.en.md)
+
 监控 X（Twitter）用户 [@thsottiaux](https://x.com/thsottiaux)（Tibo · OpenAI Codex 负责人）最近 24 小时的公开帖子，
 命中"**全球重置付费订阅用量**"类公告时，在面板高亮告警并推送到飞书 / 钉钉 / 企业微信 / Bark / Telegram。
 
 > 背景：Tibo 已形成"每周一重置"的规律（如 *"Usage limits have been reset for all paid ChatGPT Work and Codex users"*），
 > 本工具帮你在第一时间知道重置发生。
+
+![监控面板总览](docs/panel.png)
 
 ## 功能
 
@@ -14,6 +18,7 @@
 - 🔔 **五渠道推送**：飞书 / 钉钉 / 企微 / Bark / Telegram，每条推文只推一轮，重复公告不重复打扰
 - 📊 **监控面板**：左侧告警横幅 + 24 小时帖子流；右侧实时统计、数据源、通知渠道、历史命中、检查日志；60 秒自动刷新
 - 🕐 **时间一目了然**：每条帖子同时标注真实发布时间（UTC+0）、换算时间（UTC+8）和"N 小时前发布"，推送消息同样双时区
+- 🔤 **帖子一键翻译**：帖子卡片自带"翻译"按钮，机器翻译为中文（Google 通道为主、MyMemory 兜底，均免 key），译文进 SQLite 缓存，刷新页面不丢失
 - 🌓 **深浅色主题**：深色 / 浅色 / 跟随系统三种模式，偏好本地记忆
 - 🌍 **中英文界面**：面板语言跟随浏览器设置，推送消息语言可独立配置
 - 🧪 **DEMO 模式**：无需任何凭证即可本地体验完整流程
@@ -35,7 +40,8 @@ bash run.sh
 （示例配置给的是 `8080`，什么都不配时内置默认是 `8730`）。
 
 `run.sh` 会自动创建虚拟环境并安装依赖：检测到 [uv](https://docs.astral.sh/uv/) 时用 uv（更快），
-否则自动回退 `python3 -m venv` + pip。
+否则自动回退 `python3 -m venv` + pip。uv 用户也可以手动 `uv sync` 同步依赖
+（依赖同时声明在 `pyproject.toml`，mypy 在 dev 依赖组里）。
 
 ## 面板怎么看
 
@@ -45,6 +51,8 @@ bash run.sh
   `UTC+8`（换算成北京时间，和你在 X 上看到的一致）、
   `N 小时前发布`（每次刷新自动更新）。
   命中公告的帖子带紫色"命中"徽章，命中词高亮
+- **帖子翻译**：点击帖子卡片下方的"翻译"按钮，在原文下方展开机器译文（可再点"收起译文"）；
+  译文按推文永久缓存，只有首次点击会真正调用翻译接口；界面语言切到英文时英文帖子不显示该按钮
 - **实时统计**：窗口内推文数、命中公告数、轮询间隔
 - **数据源 / 通知渠道**：每个源显示"正常 / 失败 · N 分钟前"；渠道显示是否就绪
 - **历史命中**：所有命中过的公告（不限 24 小时窗口），最多显示两行内容，点行直达原推
@@ -59,7 +67,7 @@ bash run.sh
 
 | 环境变量 | 默认值 | 说明 |
 |---|---|---|
-| `MONITOR_ENV` | `production` | 设为 `debug` 时面板才显示"发送测试通知"按钮 |
+| `MONITOR_ENV` | `production` | 设为 `debug` 时面板才显示"发送测试通知"按钮，并开放 `/docs`、`/redoc`、`/openapi.json` API 文档 |
 | `MONITOR_SITE_NAME` | `Codex Reset Monitor` | 面板名称（浏览器标签页标题 + 导航栏名称） |
 | `MONITOR_ACCOUNTS` | `thsottiaux` | 监控的 X 账号，逗号分隔，不带 @ |
 | `MONITOR_POLL_INTERVAL` | `5` | 轮询间隔（分钟） |
@@ -134,7 +142,7 @@ https://x.com/thsottiaux/status/…
 
 ### 命中规则
 
-内置三条规则（保存在 `app/config.py` 的 `DEFAULT_RULES`），逻辑：**同一条规则内所有关键词全部命中（忽略大小写）才触发**。
+内置三条规则（保存在 `app/core/config.py` 的 `DEFAULT_RULES`），逻辑：**同一条规则内所有关键词全部命中（忽略大小写）才触发**。
 
 - **英文规则**：`reset` ∧ `usage/rate limits` ∧ (`paid`/`everyone`/`all`/`codex`…) —— 覆盖
   *"Usage limits have been reset for all paid…"*、*"I have reset everyone's Codex usage limits"* 等措辞
@@ -196,9 +204,12 @@ launchctl load ~/Library/LaunchAgents/com.openai_reset_monitoring.plist
 | `GET /api/tweets?hours=24` | 时间窗口内的帖子 |
 | `GET /api/hits` | 历史命中记录 |
 | `GET /api/polls` | 检查日志 |
+| `GET /api/translate?id=…&to=zh` | 翻译指定帖子（`to` 支持 `zh` / `en`，带 SQLite 缓存） |
 | `POST /api/poll-now` | 立即触发一次检查 |
 | `POST /api/test-notify` | 向所有已配置渠道发测试消息 |
 | `GET /healthz` | 健康检查 |
+
+所有 `/api/*` 返回统一包体 `{code, data, message}`（成功 `code=200`）；异常时为 `{code, message, errors}`，HTTP 状态码与 `code` 一致。`/healthz` 例外，原样返回 `{"ok": true}`。响应出参为 Pydantic 模型，`/docs`（及 `/redoc`、`/openapi.json`）可查看 OpenAPI 结构，仅在 `MONITOR_ENV=debug` 环境开放，生产环境不注册这些路径。
 
 ## 行为细节
 
@@ -212,13 +223,28 @@ launchctl load ~/Library/LaunchAgents/com.openai_reset_monitoring.plist
 
 ```
 app/
-├── main.py            # 服务入口：面板页面 + API + 后台轮询任务
-├── config.py          # 配置加载（.env / 环境变量）+ 内置命中规则
-├── db.py              # SQLite 存储（推文/检查日志/源健康/通知日志）
-├── matcher.py         # 关键词命中规则
-├── poller.py          # 轮询调度：拉取 → 去重 → 匹配 → 推送
-├── demo.py            # DEMO=1 的模拟数据源
-├── sources/           # 数据源适配器：twitterapi_io / rsshub + 自动切换
-├── notifiers/         # 通知渠道：feishu / dingtalk / wecom / bark / telegram
+├── main.py            # 服务入口：应用装配 + 面板页面，/api/* 路由在 api/ 按域拆分
+├── api/               # 路由层：status / tweets / polls / translate / system（健康检查、测试通知）
+├── core/              # 横切基础
+│   ├── config.py      # 配置加载（.env / 环境变量）+ 内置命中规则
+│   ├── errors.py      # 统一异常处理：异常转同状态码包体
+│   ├── timeutil.py    # 时间解析 / UTC 格式化
+│   └── text.py        # 文本归一化 / 相似度 / 内容指纹
+├── schemas/           # 出参构造：各接口 DTO 与 /api/* 统一响应包裹
+├── models/            # ORM 模型（表名、列名与旧库完全一致）
+├── repositories/      # 数据访问层：推文/检查日志/源健康/通知日志/翻译缓存
+├── db/
+│   └── database.py    # SQLite 异步引擎/会话/建表与防御迁移
+├── services/          # 业务层：轮询调度/规则匹配/状态聚合/查询/翻译/测试通知
+│   ├── matcher.py     # 关键词命中规则
+│   └── poller.py      # 轮询调度：拉取 → 去重 → 匹配 → 推送
+├── integrations/      # 外部系统适配
+│   ├── translate.py   # 翻译上游 API 客户端（Google / MyMemory）
+│   ├── sources/       # 数据源适配器：twitterapi_io / rsshub / demo + 自动切换
+│   └── notifiers/     # 通知渠道：feishu / dingtalk / wecom / bark / telegram
 └── web/index.html     # 监控面板（单文件，无前端构建步骤）
 ```
+
+## 开源协议
+
+本项目基于 [MIT License](LICENSE) 开源。
