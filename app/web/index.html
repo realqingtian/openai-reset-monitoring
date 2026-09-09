@@ -1,0 +1,1208 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Codex 重置监控 · @thsottiaux</title>
+<link rel="icon" id="favSvg" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="icon" id="favPng" href="/static/favicon-32x32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script>
+/* 首屏前应用主题，避免闪烁 */
+try {
+  var _m = localStorage.getItem("crm-theme") || "system";
+  var _t = _m === "system" ? (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark") : _m;
+  document.documentElement.dataset.theme = _t;
+} catch (e) {}
+</script>
+<style>
+  /* ---------- 主题令牌：深色（默认） ---------- */
+  :root {
+    --bg: #050505;
+    --text: #f4f4f6;
+    --muted: rgba(235, 235, 245, 0.58);
+    --faint: rgba(235, 235, 245, 0.34);
+    --shell: rgba(255, 255, 255, 0.04);
+    --line: rgba(255, 255, 255, 0.08);
+    --line-strong: rgba(255, 255, 255, 0.16);
+    --core-grad: linear-gradient(180deg, #0b0b10, #08080b);
+    --core-line: rgba(255, 255, 255, 0.05);
+    --core-inset: inset 0 1px 1px rgba(255, 255, 255, 0.06);
+    --card-shadow: 0 24px 60px -30px rgba(0, 0, 0, 0.9);
+    --nav-bg: rgba(5, 5, 5, 0.55);
+    --nav-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.06), 0 12px 40px -18px rgba(0, 0, 0, 0.8);
+    --btn1-bg: #f4f4f6; --btn1-fg: #0a0a0e; --btn1-hover: #ffffff;
+    --btn1-orb: rgba(10, 10, 14, 0.09);
+    --btn2-bg: rgba(255, 255, 255, 0.03); --btn2-hover: rgba(255, 255, 255, 0.08);
+    --seg-active: rgba(255, 255, 255, 0.10);
+    --emerald: #34d399; --red: #fb7185; --amber: #fbbf24; --violet: #8b5cf6;
+    --dot-idle: #3f4653;
+    --emerald-glow: rgba(52, 211, 153, 0.55); --red-glow: rgba(251, 113, 133, 0.55);
+    --hit-accent: #a78bfa; --hit-accent-glow: rgba(167, 139, 250, 0.55);
+    --hit-border: rgba(167, 139, 250, 0.35);
+    --hit-core-grad: linear-gradient(180deg, rgba(167, 139, 250, 0.10), rgba(9, 9, 12, 0.98) 60%);
+    --hit-glow: inset 0 1px 1px rgba(255, 255, 255, 0.05), 0 0 44px -16px rgba(167, 139, 250, 0.38);
+    --hero-hit-core-grad: linear-gradient(180deg, rgba(167, 139, 250, 0.12), rgba(8, 8, 11, 0.98) 55%);
+    --hero-hit-glow: inset 0 1px 1px rgba(255, 255, 255, 0.06), 0 0 60px -18px rgba(167, 139, 250, 0.50);
+    --mark-bg: rgba(167, 139, 250, 0.18); --mark-fg: #c4b5fd; --mark-flash: rgba(167, 139, 250, 0.50);
+    --pill-hit-fg: #c4b5fd; --pill-hit-line: rgba(167, 139, 250, 0.42);
+    --pill-term-fg: #fbbf24; --pill-term-line: rgba(251, 191, 36, 0.30);
+    --table-line: rgba(255, 255, 255, 0.04);
+    --row-hover: rgba(255, 255, 255, 0.02);
+    --toast-bg: rgba(12, 12, 16, 0.72); --toast-line: rgba(255, 255, 255, 0.16);
+    --toast-err-fg: #fecdd3; --toast-err-line: rgba(251, 113, 133, 0.5);
+    --demo-fg: #fbbf24; --demo-line: rgba(251, 191, 36, 0.35);
+    --src-rss-fg: #f0a44a; --src-rss-bg: rgba(240, 164, 74, 0.10);
+    --src-api-fg: #6cb6f5; --src-api-bg: rgba(108, 182, 245, 0.12);
+    --src-demo-fg: #b39df1; --src-demo-bg: rgba(179, 157, 241, 0.12);
+    --entry-hover-shadow: 0 14px 34px -22px rgba(0, 0, 0, 0.55);
+    --orb1: radial-gradient(circle at 35% 35%, rgba(139, 92, 246, 0.30), transparent 65%);
+    --orb2: radial-gradient(circle at 60% 40%, rgba(52, 211, 153, 0.15), transparent 62%);
+    --orb3: radial-gradient(circle at 50% 45%, rgba(96, 165, 250, 0.13), transparent 62%);
+    --grain-o: 0.045;
+    --sel-bg: rgba(139, 92, 246, 0.35);
+    --ease: cubic-bezier(0.32, 0.72, 0, 1);
+    --font-sans: "Geist", -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    --font-display: "Space Grotesk", "Geist", -apple-system, "PingFang SC", sans-serif;
+    --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, monospace;
+    color-scheme: dark;
+  }
+  /* ---------- 主题令牌：浅色（暖白纸感） ---------- */
+  :root[data-theme="light"] {
+    --bg: #f6f5f1;
+    --text: #1a1a1e;
+    --muted: rgba(26, 26, 30, 0.60);
+    --faint: rgba(26, 26, 30, 0.38);
+    --shell: rgba(255, 255, 255, 0.62);
+    --line: rgba(20, 20, 30, 0.08);
+    --line-strong: rgba(20, 20, 30, 0.16);
+    --core-grad: linear-gradient(180deg, #ffffff, #faf9f6);
+    --core-line: rgba(20, 20, 30, 0.06);
+    --core-inset: inset 0 1px 1px rgba(255, 255, 255, 0.85);
+    --card-shadow: 0 20px 50px -28px rgba(30, 30, 60, 0.25);
+    --nav-bg: rgba(252, 251, 248, 0.65);
+    --nav-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.9), 0 12px 36px -20px rgba(30, 30, 60, 0.28);
+    --btn1-bg: #17171a; --btn1-fg: #ffffff; --btn1-hover: #000000;
+    --btn1-orb: rgba(255, 255, 255, 0.16);
+    --btn2-bg: rgba(20, 20, 30, 0.03); --btn2-hover: rgba(20, 20, 30, 0.07);
+    --seg-active: rgba(20, 20, 30, 0.08);
+    --emerald: #0d9463; --red: #e5484d; --amber: #b45309; --violet: #7c3aed;
+    --dot-idle: #9aa0ab;
+    --emerald-glow: rgba(13, 148, 99, 0.40); --red-glow: rgba(229, 72, 77, 0.40);
+    --hit-accent: #7c3aed; --hit-accent-glow: rgba(124, 58, 237, 0.40);
+    --hit-border: rgba(124, 58, 237, 0.32);
+    --hit-core-grad: linear-gradient(180deg, rgba(124, 58, 237, 0.06), rgba(255, 255, 255, 0.99) 60%);
+    --hit-glow: inset 0 1px 1px rgba(255, 255, 255, 0.85), 0 0 44px -20px rgba(124, 58, 237, 0.28);
+    --hero-hit-core-grad: linear-gradient(180deg, rgba(124, 58, 237, 0.08), rgba(255, 255, 255, 0.99) 55%);
+    --hero-hit-glow: inset 0 1px 1px rgba(255, 255, 255, 0.85), 0 0 60px -22px rgba(124, 58, 237, 0.32);
+    --mark-bg: rgba(124, 58, 237, 0.12); --mark-fg: #6d28d9; --mark-flash: rgba(124, 58, 237, 0.35);
+    --pill-hit-fg: #6d28d9; --pill-hit-line: rgba(124, 58, 237, 0.38);
+    --pill-term-fg: #925206; --pill-term-line: rgba(180, 83, 9, 0.35);
+    --table-line: rgba(20, 20, 30, 0.06);
+    --row-hover: rgba(20, 20, 30, 0.02);
+    --toast-bg: rgba(255, 255, 255, 0.88); --toast-line: rgba(20, 20, 30, 0.12);
+    --toast-err-fg: #b91c1c; --toast-err-line: rgba(229, 72, 77, 0.5);
+    --demo-fg: #925206; --demo-line: rgba(180, 83, 9, 0.40);
+    --src-rss-fg: #a16207; --src-rss-bg: rgba(180, 120, 7, 0.10);
+    --src-api-fg: #1f6c9f; --src-api-bg: rgba(31, 108, 159, 0.10);
+    --src-demo-fg: #6d5bd0; --src-demo-bg: rgba(109, 91, 208, 0.10);
+    --entry-hover-shadow: 0 14px 30px -22px rgba(30, 30, 60, 0.35);
+    --orb1: radial-gradient(circle at 35% 35%, rgba(124, 58, 237, 0.14), transparent 65%);
+    --orb2: radial-gradient(circle at 60% 40%, rgba(13, 148, 99, 0.09), transparent 62%);
+    --orb3: radial-gradient(circle at 50% 45%, rgba(37, 99, 235, 0.08), transparent 62%);
+    --grain-o: 0.03;
+    --sel-bg: rgba(124, 58, 237, 0.16);
+    color-scheme: light;
+  }
+
+  * { box-sizing: border-box; }
+  /* 关键：.btn 等类设置了 display 会覆盖 hidden 属性的默认样式，必须显式压住 */
+  [hidden] { display: none !important; }
+  /* clip 而非 hidden：hidden 会把 html/body 变成滚动容器，破坏后代 position:sticky */
+  html { scroll-behavior: smooth; overflow-x: clip; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: var(--font-sans); font-size: 14px; line-height: 1.65;
+    -webkit-font-smoothing: antialiased; overflow-x: clip;
+    transition: background-color 0.45s var(--ease), color 0.45s var(--ease);
+  }
+  ::selection { background: var(--sel-bg); }
+  a { color: inherit; }
+  a:hover { color: var(--text); }
+  button:focus-visible, a:focus-visible { outline: 2px solid var(--violet); outline-offset: 2px; border-radius: 999px; }
+  ::view-transition-old(root), ::view-transition-new(root) { animation-duration: 0.45s; }
+  html.theming, html.theming body, html.theming .card-core, html.theming .entry-core,
+  html.theming .nav-inner, html.theming .toast {
+    transition: background-color 0.45s var(--ease), color 0.45s var(--ease),
+                border-color 0.45s var(--ease), box-shadow 0.45s var(--ease);
+  }
+
+  /* ---------- ambient background: mesh orbs + film grain ---------- */
+  .orbs { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+  .orb { position: absolute; border-radius: 50%; filter: blur(90px); will-change: transform; }
+  .orb-violet {
+    width: 560px; height: 560px; left: -160px; top: -180px;
+    background: var(--orb1);
+    animation: drift 26s var(--ease) infinite alternate;
+  }
+  .orb-emerald {
+    width: 500px; height: 500px; right: -150px; top: 60px;
+    background: var(--orb2);
+    animation: drift 34s var(--ease) infinite alternate-reverse;
+  }
+  .orb-blue {
+    width: 540px; height: 540px; left: 28%; bottom: -280px;
+    background: var(--orb3);
+    animation: drift 40s var(--ease) infinite alternate;
+  }
+  @keyframes drift {
+    from { transform: translate3d(0, 0, 0) scale(1); }
+    to { transform: translate3d(46px, 30px, 0) scale(1.09); }
+  }
+  .grain {
+    position: fixed; inset: 0; z-index: 60; pointer-events: none; opacity: var(--grain-o);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E");
+  }
+
+  /* ---------- floating glass nav ---------- */
+  .nav { position: sticky; top: 0; z-index: 40; }
+  .nav-inner {
+    max-width: 1220px; margin: 14px auto 0; padding: 8px 8px 8px 20px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    background: var(--nav-bg); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+    border: 1px solid var(--line); border-radius: 999px;
+    box-shadow: var(--nav-shadow);
+    transition: background-color 0.45s var(--ease);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .brand-logo { width: 20px; height: 20px; flex-shrink: 0; color: var(--text); transition: color 0.45s var(--ease); }
+  .brand-logo svg { width: 100%; height: 100%; display: block; }
+  .brand-name {
+    font-family: var(--font-display); font-size: 13px; font-weight: 600;
+    letter-spacing: 0.14em; text-transform: uppercase; white-space: nowrap;
+  }
+  .badge-demo {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em;
+    color: var(--demo-fg); border: 1px solid var(--demo-line);
+    border-radius: 999px; padding: 2px 10px; white-space: nowrap;
+  }
+  .nav-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; row-gap: 8px; }
+
+  .pulse-dot { position: relative; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .pulse-dot.green { background: var(--emerald); color: var(--emerald); }
+  .pulse-dot.red { background: var(--hit-accent); color: var(--hit-accent); }
+  .pulse-dot::after {
+    content: ""; position: absolute; inset: -1px; border-radius: 50%;
+    border: 1px solid currentColor; opacity: 0.6;
+    animation: ping 2.2s var(--ease) infinite;
+  }
+  .pulse-dot.dim::after { display: none; }
+  @keyframes ping {
+    0% { transform: scale(1); opacity: 0.7; }
+    80%, 100% { transform: scale(2.6); opacity: 0; }
+  }
+
+  /* ---------- theme segmented control ---------- */
+  /* ---------- 选项卡切换器（滑动选中块） ---------- */
+  .seg {
+    position: relative; display: inline-flex; align-items: center; gap: 2px;
+    border: 1px solid var(--line); border-radius: 999px; padding: 3px;
+    background: var(--btn2-bg);
+  }
+  .seg-thumb {
+    position: absolute; top: 3px; bottom: 3px; left: 0; width: 0;
+    border-radius: 999px; background: var(--seg-active);
+    box-shadow: 0 1px 6px -2px rgba(0, 0, 0, 0.35);
+    transition: transform 0.35s var(--ease), width 0.35s var(--ease);
+  }
+  .seg-item {
+    position: relative; z-index: 1; height: 28px; padding: 0 13px;
+    border: none; border-radius: 999px; background: transparent; color: var(--muted);
+    font-family: var(--font-sans); font-size: 12px; font-weight: 600; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+    transition: color 0.3s var(--ease);
+  }
+  .seg-item:hover { color: var(--text); }
+  .seg-item.active { color: var(--text); }
+  .seg-item svg { display: block; }
+  .seg-item.icon-only { padding: 0 10px; }
+  /* ---------- 语言下拉菜单 ---------- */
+  .dropdown { position: relative; }
+  .drop-trigger {
+    display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 13px;
+    border-radius: 999px; border: 1px solid var(--line); background: var(--btn2-bg);
+    color: var(--text); font-family: var(--font-sans); font-size: 12px; font-weight: 600; cursor: pointer;
+    transition: background-color 0.3s var(--ease), border-color 0.3s var(--ease);
+  }
+  .drop-trigger:hover { background: var(--btn2-hover); border-color: var(--line-strong); }
+  .drop-trigger .chev { color: var(--muted); transition: transform 0.3s var(--ease); }
+  .dropdown.open .chev { transform: rotate(180deg); }
+  .drop-menu {
+    position: absolute; right: 0; top: calc(100% + 8px); min-width: 200px; z-index: 50;
+    background: var(--core-grad); border: 1px solid var(--line-strong); border-radius: 14px;
+    box-shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.4); padding: 6px;
+    opacity: 0; transform: translateY(-6px) scale(0.97); pointer-events: none;
+    transition: opacity 0.25s var(--ease), transform 0.25s var(--ease);
+  }
+  .dropdown.open .drop-menu { opacity: 1; transform: none; pointer-events: auto; }
+  .drop-item {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%;
+    padding: 8px 12px; border: none; border-radius: 9px; background: transparent;
+    color: var(--text); font-family: var(--font-sans); font-size: 12.5px; font-weight: 500;
+    cursor: pointer; text-align: left;
+    transition: background-color 0.25s var(--ease);
+  }
+  .drop-item:hover { background: var(--btn2-hover); }
+  .drop-item .ck { opacity: 0; color: var(--hit-accent); flex-shrink: 0; }
+  .drop-item.active .ck { opacity: 1; }
+
+  /* ---------- pill buttons with nested icon orb ---------- */
+  .btn {
+    display: inline-flex; align-items: center; gap: 10px;
+    border: none; cursor: pointer; border-radius: 999px;
+    font-family: var(--font-sans); font-size: 13px; font-weight: 600;
+    padding: 7px 7px 7px 18px; color: var(--text);
+    transition: transform 0.5s var(--ease), background-color 0.5s var(--ease),
+                border-color 0.5s var(--ease), color 0.5s var(--ease);
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn:disabled { opacity: 0.55; cursor: wait; }
+  .btn-primary { background: var(--btn1-bg); color: var(--btn1-fg); }
+  .btn-primary:hover { background: var(--btn1-hover); }
+  .btn-ghost { background: var(--btn2-bg); border: 1px solid var(--line-strong); padding: 7px 18px; }
+  .btn-ghost:hover { background: var(--btn2-hover); }
+  .btn-orb {
+    width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+    display: grid; place-items: center;
+    background: var(--btn1-orb);
+    transition: transform 0.5s var(--ease);
+  }
+  .btn-ghost .btn-orb { display: none; }
+  .btn:hover .btn-orb { transform: translate(2px, -2px) scale(1.08); }
+  .btn.loading .btn-orb .ico-arrow { display: none; }
+  .btn-orb .ico-spin { display: none; }
+  .btn.loading .btn-orb .ico-spin { display: block; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .btn svg { display: block; }
+
+  /* ---------- dashboard grid ---------- */
+  .wrap { position: relative; z-index: 1; max-width: 1220px; margin: 0 auto; padding: 26px 20px 56px; }
+  .dash { display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px; align-items: start; }
+  .main { grid-column: span 8; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .rail {
+    grid-column: span 4; position: sticky; top: 80px;
+    display: flex; flex-direction: column; gap: 14px; min-width: 0;
+  }
+  @media (max-width: 1024px) {
+    .main, .rail { grid-column: span 12; }
+    .rail { position: static; }
+  }
+
+  /* double-bezel card: outer shell + inner core */
+  .card {
+    background: var(--shell); border: 1px solid var(--line);
+    border-radius: 26px; padding: 7px;
+    box-shadow: var(--card-shadow);
+    transition: background-color 0.45s var(--ease), border-color 0.45s var(--ease);
+  }
+  .card-core {
+    position: relative; height: 100%;
+    background: var(--core-grad);
+    border: 1px solid var(--core-line); border-radius: 20px;
+    box-shadow: var(--core-inset);
+    padding: 22px 26px;
+    transition: box-shadow 0.7s var(--ease), border-color 0.7s var(--ease), background-color 0.45s var(--ease);
+  }
+
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--font-mono); font-size: 10px; font-weight: 500;
+    letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted);
+    border: 1px solid var(--line); border-radius: 999px; padding: 4px 13px;
+  }
+  .sub-title {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--faint); margin: 0 0 12px;
+  }
+  .divider { height: 1px; background: var(--table-line); margin: 16px 0; }
+
+  /* ---------- hero (slim horizontal) ---------- */
+  .hero-core { display: flex; flex-direction: column; gap: 9px; justify-content: center; padding: 18px 22px; }
+  .hero-status {
+    font-family: var(--font-display); font-weight: 600;
+    font-size: clamp(19px, 2.4vw, 25px); letter-spacing: -0.02em; line-height: 1.2;
+  }
+  .hero-sub { color: var(--muted); font-size: 13px; }
+  .hero-link-row { display: flex; gap: 10px; margin-top: 3px; }
+  #hero.hit .card-core {
+    background: var(--hero-hit-core-grad);
+    border-color: var(--hit-border);
+    box-shadow: var(--hero-hit-glow);
+  }
+  .hero-glyph { position: absolute; top: 16px; right: 20px; width: 36px; height: 36px; color: var(--emerald); opacity: 0.9; }
+  #hero.hit .hero-glyph { color: var(--hit-accent); animation: breathe 2.4s var(--ease) infinite; }
+  @keyframes breathe {
+    0%, 100% { transform: scale(1); opacity: 0.85; }
+    50% { transform: scale(1.08); opacity: 1; }
+  }
+  .swap-in { animation: swapIn 0.6s var(--ease); }
+  @keyframes swapIn { from { opacity: 0; transform: translateY(8px); } }
+
+  /* ---------- stats ---------- */
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .stat-num {
+    font-family: var(--font-display); font-weight: 700; font-size: 27px;
+    letter-spacing: -0.03em; line-height: 1.1; font-variant-numeric: tabular-nums;
+  }
+  .stat-num.alert { color: var(--hit-accent); }
+  .stat-num.bump { animation: bump 0.55s var(--ease); display: inline-block; }
+  @keyframes bump {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.12); }
+    100% { transform: scale(1); }
+  }
+  .stat-label {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--faint); margin-top: 3px;
+  }
+
+  /* ---------- source rows / notifier pills ---------- */
+  .srow { display: flex; align-items: center; gap: 10px; padding: 4px 0; }
+  .srow + .srow { border-top: 1px solid var(--table-line); }
+  .sname { font-family: var(--font-mono); font-size: 12px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .sstate { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: var(--dot-idle); }
+  .dot.ok { background: var(--emerald); box-shadow: 0 0 10px var(--emerald-glow); }
+  .dot.bad { background: var(--red); box-shadow: 0 0 10px var(--red-glow); }
+  .dot.warn { background: var(--amber); }
+  .dot.idle { background: var(--dot-idle); }
+
+  .npills { display: flex; flex-wrap: wrap; gap: 8px; }
+  .npill {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-family: var(--font-mono); font-size: 11px; color: var(--muted);
+    border: 1px solid var(--line); border-radius: 999px; padding: 3px 11px;
+  }
+
+  /* ---------- sections & feed ---------- */
+  .sec-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 2px; padding: 2px 6px; }
+  .sec-title { font-family: var(--font-display); font-size: 16px; font-weight: 600; letter-spacing: -0.01em; margin: 0; }
+
+  /* ---------- 时间轴信息流 ---------- */
+  .time-wrap { position: relative; }
+  .time-wrap::before {
+    content: ""; position: absolute; left: 10px; top: 12px; bottom: 12px; width: 2px; border-radius: 2px;
+    background: linear-gradient(180deg, var(--line-strong), var(--line));
+  }
+  .tentry { position: relative; padding-left: 40px; padding-bottom: 14px; }
+  .tentry:last-child { padding-bottom: 2px; }
+  .tnode {
+    position: absolute; left: 4px; top: 3px; width: 13px; height: 13px; border-radius: 50%;
+    background: var(--bg); border: 2px solid var(--line-strong); z-index: 1;
+    transition: border-color 0.5s var(--ease), box-shadow 0.5s var(--ease);
+  }
+  .tentry.hit .tnode { border-color: var(--hit-accent); box-shadow: 0 0 12px var(--hit-accent-glow); }
+  .tstamps {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+    margin: 0 0 7px 2px; font-family: var(--font-mono); font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+  .stamp-publish { color: var(--faint); }
+  .stamp-local {
+    display: inline-flex; align-items: center; gap: 5px;
+    color: var(--src-api-fg); background: var(--src-api-bg);
+    border-radius: 999px; padding: 2px 10px 2px 7px;
+  }
+  .stamp-local svg { flex-shrink: 0; }
+  .tcard {
+    background: var(--core-grad);
+    border: 1px solid var(--core-line); border-radius: 14px;
+    box-shadow: var(--core-inset); padding: 13px 17px;
+    transition: border-color 0.4s var(--ease), transform 0.4s var(--ease), box-shadow 0.4s var(--ease);
+  }
+  .tentry:hover .tcard { border-color: var(--line-strong); transform: translateX(3px); box-shadow: var(--entry-hover-shadow); }
+  .tentry.hit .tcard { border-color: var(--hit-border); background: var(--hit-core-grad); box-shadow: var(--hit-glow); }
+  .tentry.new .tcard { animation: entryIn 0.7s var(--ease) both; }
+  @keyframes entryIn {
+    from { opacity: 0; transform: translateY(14px) scale(0.985); }
+    to { opacity: 1; transform: none; }
+  }
+  .t-pills { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .tentry.new mark { animation: markFlash 1.6s var(--ease); }
+  .entry-time.local { color: var(--muted); }
+  .pill {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em;
+    color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px;
+    white-space: nowrap;
+  }
+  .pill-hit { color: var(--pill-hit-fg); border-color: var(--pill-hit-line); }
+  .pill-term { color: var(--pill-term-fg); border-color: var(--pill-term-line); }
+  .src-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em;
+    border-radius: 999px; padding: 2.5px 10px 2.5px 8px;
+  }
+  .src-chip svg { flex-shrink: 0; }
+  .src-chip.rss { color: var(--src-rss-fg); background: var(--src-rss-bg); }
+  .src-chip.api { color: var(--src-api-fg); background: var(--src-api-bg); }
+  .src-chip.demo { color: var(--src-demo-fg); background: var(--src-demo-bg); }
+  .entry-text { margin: 0; white-space: pre-wrap; word-break: break-word; font-size: 14px; }
+  mark {
+    background: var(--mark-bg); color: var(--mark-fg);
+    border-radius: 5px; padding: 0 4px; margin: 0 1px;
+  }
+  .entry.new mark { animation: markFlash 1.6s var(--ease); }
+  @keyframes markFlash {
+    0% { background: var(--mark-flash); }
+    100% { background: var(--mark-bg); }
+  }
+  .entry-link {
+    display: inline-flex; align-items: center; gap: 6px; margin-top: 9px;
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em;
+    color: var(--muted); text-decoration: none;
+    transition: color 0.4s var(--ease);
+  }
+  .entry-link svg { transition: transform 0.45s var(--ease); }
+  .entry-link:hover { color: var(--text); }
+  .entry-link:hover svg { transform: translate(1.5px, -1.5px); }
+
+  .empty { color: var(--faint); font-size: 13px; border: 1px dashed var(--line); border-radius: 18px; padding: 20px; text-align: center; }
+
+  /* ---------- rail: compact history ---------- */
+  .hlist { display: flex; flex-direction: column; }
+  /* 右栏内容限高滚动：保证右栏矮于左栏，粘性定位始终有行程 */
+  .rail .scroll-y { overflow-y: auto; max-height: 250px; overscroll-behavior: contain; }
+  .hrow {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 2px; text-decoration: none; min-width: 0;
+    transition: background-color 0.3s var(--ease);
+  }
+  .hrow + .hrow { border-top: 1px solid var(--table-line); }
+  .hrow:hover { background: var(--row-hover); }
+  .h-time { font-family: var(--font-mono); font-size: 11px; color: var(--faint); flex-shrink: 0; font-variant-numeric: tabular-nums; }
+  .h-text {
+    flex: 1; min-width: 0; font-size: 12.5px; color: var(--muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    transition: color 0.3s var(--ease);
+  }
+  .hrow:hover .h-text { color: var(--text); }
+  .h-text mark { padding: 0 3px; }
+  .hrow .pill { flex-shrink: 0; }
+  .hempty { color: var(--faint); font-size: 12px; padding: 6px 2px 2px; }
+
+  /* ---------- 检查日志：紧凑列表 + 分页 ---------- */
+  .log-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .log-head .sub-title { margin-bottom: 0; }
+  .loglist { display: flex; flex-direction: column; }
+  .logrow { display: flex; align-items: center; gap: 8px; padding: 6px 2px; font-size: 11.5px; min-width: 0; }
+  .rail .logrow, .rail .log-stat { font-size: 11px; }
+  .logrow + .logrow { border-top: 1px solid var(--table-line); }
+  .log-time { font-family: var(--font-mono); font-size: 11px; color: var(--faint); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .log-src { font-family: var(--font-mono); font-size: 12px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .log-stat { color: var(--muted); margin-left: auto; white-space: nowrap; }
+  .pager { display: flex; align-items: center; gap: 6px; }
+  .pg-btn {
+    width: 24px; height: 24px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--btn2-bg); color: var(--muted);
+    display: grid; place-items: center; font-size: 13px; line-height: 1;
+    transition: color 0.3s var(--ease), background-color 0.3s var(--ease);
+  }
+  .pg-btn:hover:not(:disabled) { color: var(--text); background: var(--btn2-hover); }
+  .pg-btn:disabled { opacity: 0.35; cursor: default; }
+  .pg-info { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+  .ok { color: var(--emerald); } .bad { color: var(--red); }
+
+  .foot {
+    margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--line);
+    color: var(--faint); font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.02em;
+  }
+
+  /* ---------- toast ---------- */
+  .toast {
+    position: fixed; left: 50%; bottom: 30px; transform: translateX(-50%);
+    background: var(--toast-bg); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+    border: 1px solid var(--toast-line); border-radius: 999px; padding: 11px 22px;
+    font-size: 13px; box-shadow: 0 18px 50px -12px rgba(0, 0, 0, 0.5);
+    z-index: 70; max-width: min(90vw, 560px);
+    animation: toastIn 0.5s var(--ease);
+  }
+  .toast.err { border-color: var(--toast-err-line); color: var(--toast-err-fg); }
+  @keyframes toastIn {
+    from { opacity: 0; transform: translate(-50%, 12px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
+  }
+
+  /* ---------- reveal motion ---------- */
+  .rv { opacity: 0; transform: translateY(18px); transition: opacity 0.9s var(--ease), transform 0.9s var(--ease); }
+  .rv.in { opacity: 1; transform: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+    .rv { opacity: 1; transform: none; }
+  }
+
+  /* ---------- mobile collapse ---------- */
+  @media (max-width: 768px) {
+    .wrap { padding: 22px 14px 44px; }
+    .nav-inner {
+      margin: 10px 12px 0;
+      padding: 10px 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+      row-gap: 8px;
+      border-radius: 26px;
+    }
+    .brand { width: 100%; justify-content: center; }
+    .brand-name { letter-spacing: 0.1em; font-size: 11px; }
+    .nav-actions { width: 100%; justify-content: center; }
+    .btn { padding: 6px 6px 6px 14px; font-size: 12px; }
+    .stats { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .stat-num { font-size: 22px; }
+    .card-core { padding: 16px; }
+    .hero-core { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="orbs" aria-hidden="true">
+  <div class="orb orb-violet"></div>
+  <div class="orb orb-emerald"></div>
+  <div class="orb orb-blue"></div>
+</div>
+<div class="grain" aria-hidden="true"></div>
+
+<header class="nav">
+  <div class="nav-inner">
+    <div class="brand">
+      <span class="brand-logo" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill-rule="evenodd" clip-rule="evenodd" stroke-linejoin="round" stroke-miterlimit="2"><path d="M474.123 209.81c11.525-34.577 7.569-72.423-10.838-103.904-27.696-48.168-83.433-72.94-137.794-61.414a127.14 127.14 0 00-95.475-42.49c-55.564 0-104.936 35.781-122.139 88.593-35.781 7.397-66.574 29.76-84.637 61.414-27.868 48.167-21.503 108.72 15.826 150.007-11.525 34.578-7.569 72.424 10.838 103.733 27.696 48.34 83.433 73.111 137.966 61.585 24.084 27.18 58.833 42.835 95.303 42.663 55.564 0 104.936-35.782 122.139-88.594 35.782-7.397 66.574-29.76 84.465-61.413 28.04-48.168 21.676-108.722-15.654-150.008v-.172zm-39.567-87.218c11.01 19.267 15.139 41.803 11.354 63.65-.688-.516-2.064-1.204-2.924-1.72l-101.152-58.49a16.965 16.965 0 00-16.687 0L206.621 194.5v-50.232l97.883-56.597c45.587-26.32 103.732-10.666 130.052 34.921zm-227.935 104.42l49.888-28.9 49.887 28.9v57.63l-49.887 28.9-49.888-28.9v-57.63zm23.223-191.81c22.364 0 43.867 7.742 61.07 22.02-.688.344-2.064 1.204-3.097 1.72L186.666 117.26c-5.161 2.925-8.258 8.43-8.258 14.45v136.934l-43.523-25.116V130.333c0-52.64 42.491-95.13 95.131-95.302l-.172.172zM52.14 168.697c11.182-19.268 28.557-34.062 49.544-41.803V247.14c0 6.02 3.097 11.354 8.258 14.45l118.354 68.295-43.695 25.288-97.711-56.425c-45.415-26.32-61.07-84.465-34.75-130.052zm26.665 220.71c-11.182-19.095-15.139-41.802-11.354-63.65.688.516 2.064 1.204 2.924 1.72l101.152 58.49a16.965 16.965 0 0016.687 0l118.354-68.467v50.232l-97.883 56.425c-45.587 26.148-103.732 10.665-130.052-34.75h.172zm204.54 87.39c-22.192 0-43.867-7.741-60.898-22.02a62.439 62.439 0 003.097-1.72l101.152-58.317c5.16-2.924 8.429-8.43 8.257-14.45V243.527l43.523 25.116v113.022c0 52.64-42.663 95.303-95.131 95.303v-.172zM461.22 343.303c-11.182 19.267-28.729 34.061-49.544 41.63V264.687c0-6.021-3.097-11.526-8.257-14.45L284.893 181.77l43.523-25.116 97.883 56.424c45.587 26.32 61.07 84.466 34.75 130.053l.172.172z" fill-rule="nonzero" fill="currentColor"></path></svg></span>
+      <span class="pulse-dot green dim" id="brandDot"></span>
+      <span class="brand-name">Codex Reset Monitor</span>
+      <span class="badge-demo" id="demoBadge" hidden>DEMO</span>
+    </div>
+    <div class="nav-actions">
+      <div class="seg" id="themeSeg" role="tablist" aria-label="Theme">
+        <span class="seg-thumb" aria-hidden="true"></span>
+        <button class="seg-item icon-only theme-btn" data-mode="light" type="button" data-i18n-title="lightMode">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M4.8 4.8l1.4 1.4M17.8 17.8l1.4 1.4M19.2 4.8l-1.4 1.4M6.2 17.8l-1.4 1.4"/></svg>
+        </button>
+        <button class="seg-item icon-only theme-btn" data-mode="dark" type="button" data-i18n-title="darkMode">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13.2A7.5 7.5 0 0 1 10.8 4 7.5 7.5 0 1 0 20 13.2z"/></svg>
+        </button>
+        <button class="seg-item icon-only theme-btn" data-mode="system" type="button" data-i18n-title="systemMode">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="12.5" rx="2"/><path d="M9 20.5h6M12 17v3.5"/></svg>
+        </button>
+      </div>
+      <div class="dropdown" id="langDrop">
+        <button class="drop-trigger" id="langTrigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.3 3.8 5.2 3.8 8.5s-1.3 6.2-3.8 8.5c-2.5-2.3-3.8-5.2-3.8-8.5s1.3-6.2 3.8-8.5z"/></svg>
+          <span id="langLabel">中文</span>
+          <svg class="chev" viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+        </button>
+        <div class="drop-menu" role="listbox">
+          <button class="drop-item" data-lang="zh" type="button" role="option">
+            <span>中文</span>
+            <svg class="ck" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-6.5"/></svg>
+          </button>
+          <button class="drop-item" data-lang="en" type="button" role="option">
+            <span>English</span>
+            <svg class="ck" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-6.5"/></svg>
+          </button>
+          <button class="drop-item" data-lang="auto" type="button" role="option">
+            <span data-i18n="langAutoMenu">Auto</span>
+            <svg class="ck" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-6.5"/></svg>
+          </button>
+        </div>
+      </div>
+      <button id="btnPoll" class="btn btn-primary">
+        <span data-i18n="check">立即检查</span>
+        <span class="btn-orb">
+          <svg class="ico-arrow" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+          <svg class="ico-spin" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M14.5 8A6.5 6.5 0 1 1 8 1.5"/></svg>
+        </span>
+      </button>
+      <button id="btnNotify" class="btn btn-ghost" hidden data-i18n="testNotify" data-i18n-title="debugBtnTip">发送测试通知</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="dash">
+    <!-- 左主栏：告警横幅 + 24h 信息流 -->
+    <div class="main">
+      <div class="card rv" id="hero">
+        <div class="card-core hero-core">
+          <div class="hero-glyph" id="heroGlyph" aria-hidden="true"></div>
+          <div><span class="eyebrow"><span class="pulse-dot dim" id="heroDot"></span><span id="heroState">MONITORING</span></span></div>
+          <div class="hero-status" id="heroTitle">正在连接监控服务…</div>
+          <div class="hero-sub" id="heroSub"></div>
+          <div class="hero-link-row">
+            <a id="heroLink" class="btn btn-ghost" target="_blank" rel="noopener" hidden>
+              <span data-i18n="viewHit">查看命中的推文</span>
+              <span class="btn-orb">
+                <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 11.5 11.5 4.5M5.5 4.5h6v6"/></svg>
+              </span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="sec-head rv"><h2 class="sec-title" data-i18n="secFeed">最近 24 小时的帖子</h2></div>
+      <div class="time-wrap">
+        <div id="tweetList" class="tlist"></div>
+      </div>
+    </div>
+
+    <!-- 右栏（粘性）：系统面板 / 历史命中 -->
+    <aside class="rail">
+      <div class="card rv">
+        <div class="card-core">
+          <div class="sub-title" data-i18n="liveStats">Live Stats · 24H</div>
+          <div class="stats">
+            <div><span class="stat-num" id="statTweets">0</span><div class="stat-label" data-i18n="statTweets">窗口内推文</div></div>
+            <div><span class="stat-num" id="statHits">0</span><div class="stat-label" data-i18n="statHits">命中公告</div></div>
+            <div><span class="stat-num" id="statInterval">—</span><div class="stat-label" data-i18n="statInterval">轮询间隔</div></div>
+          </div>
+          <div class="divider"></div>
+          <div class="sub-title" data-i18n="dataSources">Data Sources</div>
+          <div id="srcRows"></div>
+          <div class="divider"></div>
+          <div class="sub-title" data-i18n="notifyChannels">Notify Channels</div>
+          <div class="npills" id="ntfRows"></div>
+        </div>
+      </div>
+
+      <div class="card rv">
+        <div class="card-core">
+          <div class="sub-title" data-i18n="hitHistory">Hit History · 历史命中</div>
+          <div id="hitList" class="hlist scroll-y"></div>
+        </div>
+      </div>
+
+      <div class="card rv">
+        <div class="card-core">
+          <div class="log-head">
+            <span class="sub-title" style="display:inline-flex;align-items:center;gap:8px;"><span data-i18n="pollLog">Poll Log · 检查日志</span> <span class="pill" id="logCount"></span></span>
+            <div class="pager">
+              <button class="pg-btn" id="pgPrev" type="button" aria-label="上一页">‹</button>
+              <span class="pg-info" id="pgInfo"></span>
+              <button class="pg-btn" id="pgNext" type="button" aria-label="下一页">›</button>
+            </div>
+          </div>
+          <div id="pollList" class="loglist scroll-y"></div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <footer class="foot rv" id="foot"></footer>
+</div>
+<div id="toast" class="toast" hidden></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => Array.from(document.querySelectorAll(s));
+const esc = (s) => (s || "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* ---------- i18n：支持 zh / en，自动检测浏览器语言，不匹配默认英文 ---------- */
+const I18N = {
+  zh: {
+    check: "立即检查", checking: "检查中…", testNotify: "发送测试通知",
+    debugBtnTip: "仅在 MONITOR_ENV=debug 调试环境下可用",
+    lightMode: "浅色模式", darkMode: "深色模式", systemMode: "跟随系统",
+    followBrowser: "跟随浏览器语言",
+    monitoring: "监控中", alertState: "已检测到重置公告",
+    noHit: "最近 24 小时未检测到重置公告",
+    hitDetected: "检测到重置公告 · 24 小时内 {n} 条",
+    heroSub: "监控 {acc} · 最近检查 {ago} · 命中后自动推送全部已配置渠道",
+    viewHit: "查看命中的推文",
+    statTweets: "窗口内推文", statHits: "命中公告", statInterval: "轮询间隔",
+    liveStats: "实时统计 · 24H", dataSources: "数据源", notifyChannels: "通知渠道",
+    hitHistory: "历史命中", pollLog: "检查日志",
+    langAutoMenu: "自动（跟随浏览器）", langAutoShort: "自动",
+    secFeed: "最近 24 小时的帖子",
+    srcDemo: "演示数据源", stNoKey: "缺凭证", stWait: "待首次检查",
+    stOk: "正常 · {ago}", stFail: "失败 ×{n}",
+    srcEmpty: "未启用任何数据源，请在 .env 中配置",
+    ntReady: "就绪", notifHint: "命中时仅在面板展示，配置渠道后自动推送",
+    feedEmpty: "窗口内暂无帖子，等待下次自动检查，或点击右上角“立即检查”。",
+    hitEmpty: "暂无命中记录。命中“重置公告”的推文会出现在这里。",
+    logEmpty: "暂无检查记录",
+    stampPub: "发布 UTC {t}", stampLocal: "本地 {t}",
+    pubTip: "帖子发布时间 · UTC 时区", localTip: "你的本地时间 · {tz} ({off})",
+    hitPill: "命中 · {rule}", pushed: "已推送", hitShort: "命中",
+    viewOnX: "在 X 上查看",
+    okStat: "成功 · {n} 条 · {ms}", failStat: "失败",
+    toastDone: "检查完成", toastCheckFail: "检查失败：{e}",
+    toastNoChannel: "没有已启用且配置好的通知渠道（检查面板上的渠道状态）",
+    toastSent: "测试消息已发送到 {n} 个渠道：{chs}",
+    toastSendFail: "发送失败：{e}", toastLoadFail: "面板数据加载失败：{e}",
+    prevPage: "上一页", nextPage: "下一页",
+  },
+  en: {
+    check: "Check now", checking: "Checking…", testNotify: "Send test notification",
+    debugBtnTip: "Only available when MONITOR_ENV=debug",
+    lightMode: "Light mode", darkMode: "Dark mode", systemMode: "Follow system",
+    followBrowser: "Follow browser language",
+    monitoring: "MONITORING", alertState: "ALERT · RESET DETECTED",
+    noHit: "No reset announcement detected in the last 24 hours",
+    hitDetected: "Reset announcement detected · {n} in 24h",
+    heroSub: "Monitoring {acc} · last check {ago} · hits auto-push to all configured channels",
+    viewHit: "View hit tweet",
+    statTweets: "Tweets in window", statHits: "Hits", statInterval: "Poll interval",
+    liveStats: "Live Stats · 24H", dataSources: "Data Sources", notifyChannels: "Notify Channels",
+    hitHistory: "Hit History", pollLog: "Poll Log",
+    langAutoMenu: "Auto (follow browser)", langAutoShort: "Auto",
+    secFeed: "Posts in the last 24 hours",
+    srcDemo: "Demo source", stNoKey: "No API key", stWait: "Pending first check",
+    stOk: "OK · {ago}", stFail: "Failed ×{n}",
+    srcEmpty: "No data source enabled. Configure one in .env",
+    ntReady: "Ready", notifHint: "Hits show on the panel only. Configure a channel to get pushed.",
+    feedEmpty: "No posts in the window yet. Waiting for the next check, or click \"Check now\".",
+    hitEmpty: "No hits yet. Tweets matching the reset announcement will appear here.",
+    logEmpty: "No check logs yet",
+    stampPub: "Published UTC {t}", stampLocal: "Local {t}",
+    pubTip: "Post time · UTC", localTip: "Your local time · {tz} ({off})",
+    hitPill: "Hit · {rule}", pushed: "Pushed", hitShort: "Hit",
+    viewOnX: "View on X",
+    okStat: "OK · {n} tweets · {ms}", failStat: "Failed",
+    toastDone: "Check finished", toastCheckFail: "Check failed: {e}",
+    toastNoChannel: "No enabled & configured channel (check the channel status on the panel)",
+    toastSent: "Test notification sent to {n} channel(s): {chs}",
+    toastSendFail: "Send failed: {e}", toastLoadFail: "Failed to load panel data: {e}",
+    prevPage: "Previous page", nextPage: "Next page",
+  },
+};
+function detectLang() {
+  const langs = [navigator.language, ...(navigator.languages || [])]
+    .filter(Boolean).map((l) => l.toLowerCase());
+  return langs.some((l) => l.startsWith("zh")) ? "zh" : "en";
+}
+const LANG_KEY = "crm-lang";
+let langMode = (() => {
+  try {
+    const s = localStorage.getItem(LANG_KEY);
+    if (s === "zh" || s === "en") return s;
+  } catch (e) {}
+  return "auto";
+})();
+let lang = "en";
+function resolveLang() { return langMode === "auto" ? detectLang() : langMode; }
+function t(key, params) {
+  let s = (I18N[lang] && I18N[lang][key]) ?? I18N.en[key] ?? key;
+  if (params) for (const [k, v] of Object.entries(params)) s = s.replaceAll(`{${k}}`, v);
+  return s;
+}
+function applyI18n() {
+  lang = resolveLang();
+  document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
+  document.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll("[data-i18n-title]").forEach((el) => {
+    el.title = t(el.dataset.i18nTitle);
+    el.setAttribute("aria-label", t(el.dataset.i18nTitle));
+  });
+  $("#pgPrev").setAttribute("aria-label", t("prevPage"));
+  $("#pgNext").setAttribute("aria-label", t("nextPage"));
+  $$(".drop-item").forEach((b) => b.classList.toggle("active", b.dataset.lang === langMode));
+  syncDropTrigger();
+  syncAllThumbs();
+}
+function syncDropTrigger() {
+  const label = langMode === "zh" ? "中文" : langMode === "en" ? "English" : t("langAutoShort");
+  $("#langLabel").textContent = label;
+  $$(".drop-item").forEach((b) => b.classList.toggle("active", b.dataset.lang === langMode));
+}
+/* 选项卡滑块：跟随激活项的位置与宽度 */
+function syncThumb(seg) {
+  const thumb = seg.querySelector(".seg-thumb");
+  const active = seg.querySelector(".seg-item.active");
+  if (!thumb || !active) return;
+  thumb.style.width = active.offsetWidth + "px";
+  thumb.style.transform = `translateX(${active.offsetLeft - 3}px)`;
+}
+function syncAllThumbs() { document.querySelectorAll(".seg").forEach(syncThumb); }
+window.addEventListener("resize", syncAllThumbs);
+window.addEventListener("load", syncAllThumbs);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(syncAllThumbs);
+function setLang(mode) {
+  langMode = mode;
+  try { localStorage.setItem(LANG_KEY, mode); } catch (e) {}
+  syncDropTrigger();
+  if (!document.hidden && document.startViewTransition) document.startViewTransition(applyI18n);
+  else applyI18n();
+  refresh();
+}
+const langDrop = $("#langDrop");
+$("#langTrigger").addEventListener("click", (e) => {
+  e.stopPropagation();
+  const open = langDrop.classList.toggle("open");
+  langDrop.querySelector(".drop-trigger").setAttribute("aria-expanded", String(open));
+});
+document.addEventListener("click", (e) => { if (!langDrop.contains(e.target)) langDrop.classList.remove("open"); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") langDrop.classList.remove("open"); });
+$$(".drop-item").forEach((b) => b.addEventListener("click", () => { setLang(b.dataset.lang); langDrop.classList.remove("open"); }));
+applyI18n();
+
+const SVG_OK = '<svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M8.5 12.2l2.4 2.4 4.6-5"/></svg>';
+const SVG_ALERT = '<svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 9.5a6 6 0 1 0-12 0c0 5-2 6-2 6h16s-2-1-2-6"/><path d="M10 19a2.2 2.2 0 0 0 4 0"/></svg>';
+const SVG_LINK = '<svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 11.5 11.5 4.5M5.5 4.5h6v6"/></svg>';
+const SVG_RSS = '<svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><path d="M4 4.5A1.5 1.5 0 0 1 5.5 3C13.5 3 20 9.5 20 17.5a1.5 1.5 0 0 1-3 0C17 11.1 11.9 6 5.5 6A1.5 1.5 0 0 1 4 4.5zM4 10.5A1.5 1.5 0 0 1 5.5 9 8.5 8.5 0 0 1 14 17.5a1.5 1.5 0 0 1-3 0A5.5 5.5 0 0 0 5.5 12 1.5 1.5 0 0 1 4 10.5zM6 18a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/></svg>';
+const SVG_BOLT = '<svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><path d="M13 2 4.5 13.5H11L9.5 22 19 10h-6.5L13 2z"/></svg>';
+const SOURCE_META = {
+  rsshub: { label: "RSSHub", cls: "rss", icon: SVG_RSS },
+  twitterapi_io: { label: "TwitterAPI.io", cls: "api", icon: SVG_BOLT },
+  demo: { label: "Demo", cls: "demo", icon: SVG_BOLT },
+};
+function sourceChip(source) {
+  const m = SOURCE_META[source] || { label: source, cls: "demo", icon: SVG_RSS };
+  return `<span class="src-chip ${m.cls}">${m.icon}${esc(m.label)}</span>`;
+}
+
+/* ---------- 主题：深色 / 浅色 / 跟随系统 ---------- */
+const THEME_KEY = "crm-theme";
+const mqLight = matchMedia("(prefers-color-scheme: light)");
+let themeMode = "system";
+try { themeMode = localStorage.getItem(THEME_KEY) || "system"; } catch (e) {}
+if (!["light", "dark", "system"].includes(themeMode)) themeMode = "system";
+
+function effectiveTheme() {
+  return themeMode === "system" ? (mqLight.matches ? "light" : "dark") : themeMode;
+}
+function applyTheme() {
+  const t = effectiveTheme();
+  document.documentElement.dataset.theme = t;
+  document.documentElement.style.colorScheme = t;
+  $$(".theme-btn").forEach((b) => b.classList.toggle("active", b.dataset.mode === themeMode));
+  syncAllThumbs();
+  syncFavicon();
+}
+/* favicon 跟随主题：浅色用深色标、深色用浅色标，保证浏览器标签栏可见 */
+function syncFavicon() {
+  const suffix = document.documentElement.dataset.theme === "dark" ? "-dark" : "";
+  const svg = document.getElementById("favSvg");
+  const png = document.getElementById("favPng");
+  if (svg) svg.href = `/static/favicon${suffix}.svg`;
+  if (png) png.href = `/static/favicon${suffix}-32x32.png`;
+}
+function setTheme(mode) {
+  themeMode = mode;
+  try { localStorage.setItem(THEME_KEY, mode); } catch (e) {}
+  const run = () => applyTheme();
+  // 页面不可见时 startViewTransition 的回调会被推迟，直接切换
+  if (!reducedMotion && !document.hidden && document.startViewTransition) {
+    document.startViewTransition(run);           // 整页交叉淡入
+  } else {
+    document.documentElement.classList.add("theming");
+    run();
+    setTimeout(() => document.documentElement.classList.remove("theming"), 500);
+  }
+}
+mqLight.addEventListener?.("change", () => { if (langMode === "auto") applyI18n(); if (themeMode === "system") applyTheme(); syncFavicon(); });
+$$(".theme-btn").forEach((b) => b.addEventListener("click", () => setTheme(b.dataset.mode)));
+applyTheme();
+
+/* ---------- 工具 ---------- */
+function hl(text, terms) {
+  let html = esc(text);
+  (terms || []).forEach((term) => {
+    if (!term) return;
+    // 纯 ASCII 词加 \b 边界，避免 "we" 高亮进 "weeks"；中文等无空格语言按子串匹配
+    const body = escRe(esc(term));
+    const pat = /^[A-Za-z0-9]/.test(term) && /[A-Za-z0-9]$/.test(term) ? `\\b${body}\\b` : body;
+    try { html = html.replace(new RegExp(pat, "gi"), (m) => `<mark>${m}</mark>`); } catch (e) {}
+  });
+  return html;
+}
+function ago(iso) {
+  if (!iso) return "—";
+  let s = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (s < 0) s = 0;
+  const zh = lang === "zh";
+  if (s < 60) return zh ? "刚刚" : "just now";
+  if (s < 3600) { const m = Math.floor(s / 60); return zh ? `${m} 分钟前` : `${m} min ago`; }
+  if (s < 86400) { const h = Math.floor(s / 3600); return zh ? `${h} 小时前` : `${h}h ago`; }
+  const d = Math.floor(s / 86400); return zh ? `${d} 天前` : `${d}d ago`;
+}
+/* 时间统一输出 年-月-日 时:分:秒 */
+function fmt(iso) {
+  if (!iso) return "—";
+  return fmtLocal(iso);
+}
+/* 发布时间统一以 UTC 存储，这里分别输出 UTC 与本地时区两种标识 */
+function fmtUTC(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`;
+}
+function fmtLocal(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+function localOffsetLabel() {
+  const off = -new Date().getTimezoneOffset() / 60;
+  return "UTC" + (off >= 0 ? "+" : "") + off;
+}
+const localTZName = (() => {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (e) { return ""; }
+})();
+async function j(url, opt) {
+  const r = await fetch(url, opt);
+  if (!r.ok) throw new Error(`${url} -> HTTP ${r.status}`);
+  return r.json();
+}
+let toastTimer = null;
+function toast(msg, ok = true) {
+  const el = $("#toast");
+  el.textContent = msg;
+  el.className = "toast" + (ok ? "" : " err");
+  el.hidden = false;
+  el.style.animation = "none";
+  void el.offsetWidth;               // 重置动画，让每次弹出都有滑入
+  el.style.animation = "";
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.hidden = true; }, 4000);
+}
+function replay(el, cls) {
+  if (reducedMotion || !el) return;
+  el.classList.remove(cls);
+  void el.offsetWidth;
+  el.classList.add(cls);
+}
+function animateNumber(el, to, suffix = "") {
+  const from = parseInt(el.dataset.v || "0", 10) || 0;
+  el.dataset.v = String(to);
+  if (reducedMotion || from === to) { el.textContent = to + suffix; return; }
+  replay(el, "bump");
+  const dur = 650, t0 = performance.now();
+  const easeOut = (x) => 1 - Math.pow(1 - x, 3);
+  const frame = (now) => {
+    const p = Math.min(1, (now - t0) / dur);
+    el.textContent = Math.round(from + (to - from) * easeOut(p)) + suffix;
+    if (p < 1) requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
+}
+
+function renderHero(st) {
+  // 站点名称：页面标题与导航栏名称可经 MONITOR_SITE_NAME 配置
+  if (st.site_name) {
+    document.title = st.site_name;
+    document.querySelector(".brand-name").textContent = st.site_name;
+  }
+  const hit = st.hit_count_24h > 0;
+  const changed = $("#hero").classList.contains("hit") !== hit;
+  $("#hero").classList.toggle("hit", hit);
+  $("#heroGlyph").innerHTML = hit ? SVG_ALERT : SVG_OK;
+  if (changed) { replay($("#heroTitle"), "swap-in"); replay($("#heroGlyph"), "swap-in"); }
+  $("#heroState").textContent = hit ? t("alertState") : t("monitoring");
+  $("#heroDot").className = "pulse-dot " + (hit ? "red" : "green");
+  $("#brandDot").className = "pulse-dot " + (hit ? "red" : "green");
+  $("#heroTitle").textContent = hit ? t("hitDetected", { n: st.hit_count_24h }) : t("noHit");
+  $("#heroSub").textContent = t("heroSub", {
+    acc: st.accounts.map((a) => "@" + a).join(lang === "zh" ? "、" : ", "),
+    ago: ago(st.last_poll_at),
+  });
+  const link = $("#heroLink");
+  if (hit && st.latest_hit) { link.href = st.latest_hit.url; link.hidden = false; }
+  else { link.hidden = true; }
+  $("#demoBadge").hidden = !st.demo;
+  // 调试模式下才显示"发送测试通知"；生产环境（debug 非 true）保持隐藏
+  $("#btnNotify").hidden = st.debug !== true;
+  animateNumber($("#statTweets"), st.tweets_24h);
+  animateNumber($("#statHits"), st.hit_count_24h);
+  $("#statHits").classList.toggle("alert", hit);
+  $("#statInterval").textContent = st.poll_interval_minutes + " min";
+}
+
+function renderSources(st) {
+  const rows = [];
+  if (st.demo) rows.push(`<div class="srow"><span class="dot ok"></span><span class="sname">demo</span><span class="sstate">${t("srcDemo")}</span></div>`);
+  // 只展示已启用的数据源，未启用的不出现在面板上
+  st.sources.filter((s) => s.enabled).forEach((s) => {
+    let cls, label;
+    if (!s.configured) { cls = "warn"; label = t("stNoKey"); }
+    else if (!s.known) { cls = "warn"; label = t("stWait"); }
+    else if (s.healthy) { cls = "ok"; label = t("stOk", { ago: ago(s.last_ok) }); }
+    else { cls = "bad"; label = t("stFail", { n: s.failures }); }
+    rows.push(`<div class="srow" ${s.last_error ? `title="${esc(s.last_error)}"` : ""}><span class="dot ${cls}"></span><span class="sname">${esc(s.name)}</span><span class="sstate">${label}</span></div>`);
+  });
+  $("#srcRows").innerHTML = rows.join("") || `<div class="srow"><span class="dot warn"></span><span class="sname">—</span><span class="sstate">${t("srcEmpty")}</span></div>`;
+
+  const ntf = [];
+  let okCount = 0;
+  // 只展示已启用的通知渠道
+  st.notifiers.filter((n) => n.enabled).forEach((n) => {
+    const cls = n.configured ? "ok" : "warn";
+    const label = n.configured ? t("ntReady") : t("stNoKey");
+    if (n.configured) okCount++;
+    ntf.push(`<span class="npill"><span class="dot ${cls}"></span>${esc(n.name)} · ${label}</span>`);
+  });
+  if (okCount === 0) ntf.push(`<span class="npill">${t("notifHint")}</span>`);
+  $("#ntfRows").innerHTML = ntf.join("");
+}
+
+const seenIds = new Set();
+function tweetCard(tw, isNew, idx) {
+  const pills = [sourceChip(tw.source)];
+  if (tw.matched) {
+    pills.push(`<span class="pill pill-hit">${esc(t("hitPill", { rule: tw.rule_name || "" }))}</span>`);
+    (tw.matched_terms || []).slice(0, 6).forEach((w) => pills.push(`<span class="pill pill-term">${esc(w)}</span>`));
+    if (tw.notified) pills.push(`<span class="pill">${t("pushed")}</span>`);
+  }
+  const cls = ["tentry", tw.matched ? "hit" : "", isNew ? "new" : ""].filter(Boolean).join(" ");
+  const cardStyle = isNew ? ` style="animation-delay:${Math.min(idx * 70, 350)}ms"` : "";
+  return `<article class="${cls}">
+    <span class="tnode" aria-hidden="true"></span>
+    <div class="tstamps">
+      <span class="stamp-publish" title="${esc(t("pubTip"))}">${esc(t("stampPub", { t: fmtUTC(tw.created_at) }))}</span>
+      <span class="stamp-local" title="${esc(t("localTip", { tz: localTZName, off: localOffsetLabel() }))}"><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>${esc(t("stampLocal", { t: fmtLocal(tw.created_at) }))}</span>
+    </div>
+    <div class="tcard"${cardStyle}>
+      <div class="t-pills">${pills.join("")}</div>
+      <p class="entry-text">${hl(tw.text, tw.matched_terms)}</p>
+      <a class="entry-link" href="${esc(tw.url)}" target="_blank" rel="noopener">${esc(t("viewOnX"))} ${SVG_LINK}</a>
+    </div>
+  </article>`;
+}
+/* 返回渲染结果并登记已见 ID：只有新出现的推文才播放入场动画 */
+function renderTweetList(el, list) {
+  const freshIdx = new Map();
+  list.forEach((tw) => { if (!seenIds.has(tw.id)) freshIdx.set(tw.id, freshIdx.size); });
+  el.innerHTML = list.length
+    ? list.map((tw, i) => tweetCard(tw, freshIdx.has(tw.id), freshIdx.get(tw.id) || 0)).join("")
+    : "";
+  list.forEach((tw) => seenIds.add(tw.id));
+}
+
+function renderHitList(list) {
+  const el = $("#hitList");
+  if (!list.length) {
+    el.innerHTML = `<div class="hempty">${t("hitEmpty")}</div>`;
+    return;
+  }
+  el.innerHTML = list.map((tw) => `<a class="hrow" href="${esc(tw.url)}" target="_blank" rel="noopener" title="${esc(tw.created_at)}">
+    <span class="h-time">${fmt(tw.created_at)}</span>
+    <span class="h-text">${hl(tw.text, tw.matched_terms)}</span>
+    <span class="pill pill-hit">${esc(t("hitShort"))}</span>
+  </a>`).join("");
+}
+
+let settled = false;
+function reveal(scope) {
+  if (settled) return;
+  const els = (scope || document).querySelectorAll(".rv:not(.in)");
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((e) => {
+      if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
+    });
+  }, { threshold: 0.06 });
+  els.forEach((el, i) => {
+    el.style.transitionDelay = Math.min(i * 70, 350) + "ms";
+    io.observe(el);
+  });
+}
+
+let allPolls = [];
+let pollPage = 1;
+const POLL_PAGE_SIZE = 10;
+
+function renderPolls() {
+  const total = allPolls.length;
+  const pages = Math.max(1, Math.ceil(total / POLL_PAGE_SIZE));
+  pollPage = Math.min(Math.max(1, pollPage), pages);
+  const start = (pollPage - 1) * POLL_PAGE_SIZE;
+  $("#pollList").innerHTML = total
+    ? allPolls.slice(start, start + POLL_PAGE_SIZE).map((p) => `
+      <div class="logrow" title="${esc(p.error || "")}">
+        <span class="log-time">${fmt(p.ts)}</span>
+        <span class="dot ${p.ok ? "ok" : "bad"}"></span>
+        <span class="log-src">${esc(p.source)}</span>
+        <span class="log-stat">${p.ok
+          ? t("okStat", { n: p.new_tweets ?? 0, ms: p.latency_ms != null ? p.latency_ms + "ms" : "—" })
+          : t("failStat")}</span>
+      </div>`).join("")
+    : `<div class="hempty">${t("logEmpty")}</div>`;
+  $("#pgInfo").textContent = `${pollPage} / ${pages}`;
+  $("#logCount").textContent = `${total} 条`;
+  $("#pgPrev").disabled = pollPage <= 1;
+  $("#pgNext").disabled = pollPage >= pages;
+}
+
+$("#pgPrev").addEventListener("click", () => { pollPage = Math.max(1, pollPage - 1); renderPolls(); });
+$("#pgNext").addEventListener("click", () => { pollPage += 1; renderPolls(); });
+
+async function refresh() {
+  try {
+    const [st, tweets, hits, polls] = await Promise.all([
+      j("/api/status"), j("/api/tweets"), j("/api/hits?limit=20"), j("/api/polls?limit=200"),
+    ]);
+    renderHero(st);
+    renderSources(st);
+
+    if (tweets.length) renderTweetList($("#tweetList"), tweets);
+    else $("#tweetList").innerHTML = `<div class="empty">${t("feedEmpty")}</div>`;
+    renderHitList(hits);
+
+    allPolls = polls;
+    renderPolls();
+
+    $("#foot").textContent =
+      `MONITORING ${st.accounts.map((a) => "@" + a).join(" / ").toUpperCase()} · POLL ${st.poll_interval_minutes}MIN · WINDOW ${st.lookback_hours}H · RULES ${st.rules.length} · CONFIG ${st.config_file} · ENV ${(st.env_mode || "production").toUpperCase()} · AUTO-REFRESH 60S`;
+
+    reveal(document);
+    if (!settled) setTimeout(() => { settled = true; }, 1600);
+  } catch (e) {
+    toast(t("toastLoadFail", { e: e.message }), false);
+  }
+}
+
+$("#btnPoll").addEventListener("click", async (ev) => {
+  const btn = ev.currentTarget;
+  btn.disabled = true; btn.classList.add("loading");
+  btn.dataset.label = btn.children[0].textContent;
+  btn.children[0].textContent = t("checking");
+  try {
+    await j("/api/poll-now", { method: "POST" });
+    await refresh();
+    toast(t("toastDone"));
+  } catch (e) {
+    toast(t("toastCheckFail", { e: e.message }), false);
+  } finally {
+    btn.disabled = false; btn.classList.remove("loading");
+    btn.children[0].textContent = t("check");
+  }
+});
+
+$("#btnNotify").addEventListener("click", async (ev) => {
+  const btn = ev.currentTarget;
+  btn.disabled = true;
+  try {
+    const results = await j("/api/test-notify", { method: "POST" });
+    if (!results.length) { toast(t("toastNoChannel"), false); }
+    else {
+      const fails = results.filter((r) => !r.ok);
+      const chs = results.map((r) => r.channel).join(lang === "zh" ? "、" : ", ");
+      toast(fails.length
+        ? t("toastSendFail", { e: fails.map((f) => f.channel).join(", ") + (fails[0].error ? " " + fails[0].error : "") })
+        : t("toastSent", { n: results.length, chs }),
+        !fails.length);
+    }
+  } catch (e) {
+    toast(t("toastSendFail", { e: e.message }), false);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+refresh();
+setInterval(refresh, 60000);
+</script>
+</body>
+</html>

@@ -1,0 +1,34 @@
+# Codex 重置监控 · 一键编排
+#
+# 使用：
+#   1. 确保同目录下有 .env（cp .env.example .env 并填写凭证）
+#   2. docker compose up -d --build
+#   3. 查看日志：docker compose logs -f
+#
+# 说明：
+#   - .env 中的所有变量会注入容器（MONITOR_HOST/PORT 会被强制覆盖为
+#     容器内 0.0.0.0:8730，宿主机端口用下面的 ${MONITOR_PORT:-8730} 调整）
+#   - SQLite 数据库挂载在 ./data，容器重建不丢数据
+
+services:
+  monitor:
+    build: .
+    image: codex-reset-monitor
+    container_name: codex-reset-monitor
+    restart: always
+    ports:
+      - "${MONITOR_PORT:-8730}:8730"
+    env_file: .env
+    environment:
+      # 覆盖 .env 里的同名值：容器内固定监听 0.0.0.0:8730
+      MONITOR_HOST: 0.0.0.0
+      MONITOR_PORT: "8730"
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      # slim 镜像没有 curl，用标准库发健康检查请求
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8730/healthz', timeout=5)"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 15s

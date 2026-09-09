@@ -1,0 +1,12 @@
+# 密钥不进镜像（部署时通过 compose 的 env_file 注入）
+.env
+# 本地运行产物
+.venv
+data
+__pycache__
+*.pyc
+# 开发工具与文档
+.idea
+.git
+*.md
+openai-com-logo-assets

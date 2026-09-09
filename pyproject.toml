@@ -1,0 +1,10 @@
+[project]
+name = "openai-reset-monitoring"
+version = "0.1.0"
+description = "监控 X 账号的 Codex 用量重置公告，命中时推送全部已配置的通知渠道"
+readme = "README.md"
+authors = [
+    { name = "Sunny", email = "fangjunjie@nanyuan.net" }
+]
+requires-python = ">=3.9"
+dependencies = []
