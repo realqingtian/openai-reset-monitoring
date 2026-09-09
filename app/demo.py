@@ -1,7 +1,7 @@
 """DEMO=1 时的模拟数据源：生成含一条命中公告的样例推文，用于无凭证演示与自检。"""
 from datetime import timedelta
 
-from app.util import hours_ago_iso, iso_utc
+from app.util import hours_ago_iso
 
 _cache = None
 
@@ -11,7 +11,6 @@ def is_configured(scfg):
 
 
 def _sample_tweets(account="thsottiaux"):
-    now = iso_utc()
     def at(hours_ago):
         return hours_ago_iso(hours_ago)
     return [

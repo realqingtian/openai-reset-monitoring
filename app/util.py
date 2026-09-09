@@ -43,7 +43,7 @@ def hours_ago_iso(hours):
 
 
 def parse_dt(value):
-    """尽力解析第三方源返回的各种时间格式，失败时退回当前时间。"""
+    """尽力解析第三方源返回的各种时间格式，失败时退回当前时间。统一输出 UTC 存储。"""
     s = (str(value) if value is not None else "").strip()
     if not s:
         return iso_utc()

@@ -2,6 +2,7 @@
 import json
 import sqlite3
 from contextlib import contextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 
 from app.util import content_hash, hours_ago_iso, iso_utc
@@ -59,6 +60,13 @@ def init_db():
         for r in rows:
             c.execute("UPDATE tweets SET content_hash=? WHERE id=?",
                       (content_hash(r["text"]), r["id"]))
+        # 兼容曾按北京时间(+08:00)存储的旧库：迁回真实 UTC；只处理 +08:00 结尾的行，保证只执行一次
+        rows = c.execute(
+            "SELECT id, created_at FROM tweets WHERE created_at LIKE '%+08:00'"
+        ).fetchall()
+        for r in rows:
+            dt = datetime.fromisoformat(r["created_at"]).astimezone(timezone.utc)
+            c.execute("UPDATE tweets SET created_at=? WHERE id=?", (iso_utc(dt), r["id"]))
         # 日志表只保留 30 天，防止长期运行无限膨胀
         cutoff = hours_ago_iso(24 * 30)
         c.execute("DELETE FROM polls WHERE ts < ?", (cutoff,))
