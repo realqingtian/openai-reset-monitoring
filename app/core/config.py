@@ -1,0 +1,281 @@
+"""配置模块：pydantic-settings 类型化配置。
+
+来源优先级：OS 环境变量 > 项目根目录 .env 文件 > 内置默认值。
+约定：
+- 数据源与通知渠道"填了凭证即启用，留空即停用"（enabled 由凭证推导，见各配置模型）；
+- 环境变量留空（空字符串）视为未设置，使用默认值，与旧版行为一致。
+"""
+import json
+import logging
+from pathlib import Path
+from typing import List, Optional
+
+from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+ROOT = Path(__file__).resolve().parent.parent.parent
+log = logging.getLogger("config")
+
+# 内置命中规则：依据 Tibo 的历史措辞设计（同一条规则内所有正则全部命中才触发）。
+# 如需自定义，设置环境变量 MONITOR_RULES_JSON（结构与此处一致）覆盖。
+DEFAULT_RULES: List[dict] = [
+    {
+        "name": "全球重置·英文",
+        "enabled": True,
+        "all_patterns": [
+            r"reset(?:ted|ting|s)?\b",
+            r"(?:usage|rate)[ _-]?limits?|\busages?\b",
+            r"\b(?:paid|paying|subscri\w*|everyone|all|global\w*|codex|chatgpt|we|our)\b",
+        ],
+    },
+    {
+        "name": "全球重置·中文",
+        "enabled": True,
+        "all_patterns": [
+            r"重置",
+            r"用量|限额|额度|付费|订阅|全球",
+        ],
+    },
+    {
+        # 宽松兜底：如 "I will reset usage limits this evening"（预告式，无受众词）
+        "name": "全球重置·英文·宽",
+        "enabled": True,
+        "all_patterns": [
+            r"reset(?:ted|ting|s)?\b",
+            r"(?:usage|rate)[ _-]?limits?",
+        ],
+    },
+]
+
+
+class RuleConfig(BaseModel):
+    """单条命中规则。"""
+
+    name: Optional[str] = None
+    enabled: bool = True
+    all_patterns: List[str] = Field(default_factory=list)
+
+
+class MatcherConfig(BaseModel):
+    rules: List[RuleConfig] = Field(default_factory=lambda: [RuleConfig(**r) for r in DEFAULT_RULES])
+
+
+class ServiceConfig(BaseModel):
+    host: str = "127.0.0.1"
+    port: int = 8730
+
+
+class TwitterapiIoConfig(BaseModel):
+    """twitterapi.io 数据源：填了 API Key 即启用。"""
+
+    api_key: str = ""
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self.api_key.strip())
+
+
+class RsshubConfig(BaseModel):
+    """RSSHub 数据源：填了实例地址即启用。"""
+
+    base_url: str = ""
+    route: str = "twitter/user"
+    access_key: str = ""
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self.base_url.strip())
+
+
+class SourcesConfig(BaseModel):
+    twitterapi_io: TwitterapiIoConfig = TwitterapiIoConfig()
+    rsshub: RsshubConfig = RsshubConfig()
+
+
+class WebhookNotifierConfig(BaseModel):
+    """webhook 型通知渠道基类：填了 webhook 即启用。"""
+
+    webhook: str = ""
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self.webhook.strip())
+
+
+class FeishuConfig(WebhookNotifierConfig):
+    pass
+
+
+class DingtalkConfig(WebhookNotifierConfig):
+    pass
+
+
+class WecomConfig(WebhookNotifierConfig):
+    pass
+
+
+class BarkConfig(BaseModel):
+    server_url: str = ""
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self.server_url.strip())
+
+
+class TelegramConfig(BaseModel):
+    bot_token: str = ""
+    chat_id: str = ""
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self.bot_token.strip()) and bool(self.chat_id.strip())
+
+
+class NotifiersConfig(BaseModel):
+    feishu: FeishuConfig = FeishuConfig()
+    dingtalk: DingtalkConfig = DingtalkConfig()
+    wecom: WecomConfig = WecomConfig()
+    bark: BarkConfig = BarkConfig()
+    telegram: TelegramConfig = TelegramConfig()
+
+
+class Settings(BaseSettings):
+    """全量配置。字段名即环境变量名的小写形式，pydantic-settings 自动映射（大小写不敏感）。"""
+
+    model_config = SettingsConfigDict(
+        env_file=ROOT / ".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    # -- 服务 --
+    monitor_env: str = "production"
+    monitor_site_name: str = "Codex Reset Monitor"
+    monitor_host: str = "127.0.0.1"
+    monitor_port: int = 8730
+    monitor_accounts: str = "thsottiaux"
+    monitor_poll_interval: int = 5
+    monitor_lookback_hours: int = 24
+    monitor_notify_lang: str = "zh"
+    monitor_rules_json: Optional[str] = None
+    demo: bool = False
+
+    # -- 数据源凭证（填了即启用） --
+    twitterapi_io_key: str = ""
+    rsshub_base_url: str = ""
+    rsshub_route: str = "twitter/user"
+    rsshub_access_key: str = ""
+
+    # -- 通知渠道凭证（填了即启用） --
+    feishu_webhook: str = ""
+    dingtalk_webhook: str = ""
+    wecom_webhook: str = ""
+    bark_url: str = ""
+    tg_bot_token: str = ""
+    tg_chat_id: str = ""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_empty_env(cls, values):
+        """环境变量为空字符串视为未设置：沿用旧 _env 约定，避免 .env 里的 `VAR=` 覆盖默认值。"""
+        if isinstance(values, dict):
+            return {k: v for k, v in values.items() if not (isinstance(v, str) and not v.strip())}
+        return values
+
+    @field_validator("monitor_env", mode="after")
+    @classmethod
+    def _normalize_env(cls, v):
+        v = (v or "").strip().lower()
+        return "debug" if v in ("debug", "dev", "development") else "production"
+
+    @field_validator("monitor_notify_lang", mode="after")
+    @classmethod
+    def _normalize_lang(cls, v):
+        v = (v or "").strip().lower()
+        return v if v in ("zh", "en") else "zh"
+
+    @field_validator("monitor_port", "monitor_poll_interval", "monitor_lookback_hours", mode="after")
+    @classmethod
+    def _positive(cls, v):
+        return max(1, int(v))
+
+    # ---- 派生视图：与旧版 load_config() 返回的 dict 键一一对应 ----
+
+    @property
+    def env_mode(self) -> str:
+        return self.monitor_env
+
+    @property
+    def debug(self) -> bool:
+        return self.env_mode == "debug"
+
+    @property
+    def docs_enabled(self) -> bool:
+        return self.debug
+
+    @property
+    def site_name(self) -> str:
+        return self.monitor_site_name
+
+    @property
+    def config_file(self) -> str:
+        return ".env" if (ROOT / ".env").exists() else "环境变量（未创建 .env）"
+
+    @property
+    def accounts(self) -> List[str]:
+        parsed = [a.strip().lstrip("@") for a in self.monitor_accounts.split(",") if a.strip()]
+        return parsed or ["thsottiaux"]
+
+    @property
+    def poll_interval_minutes(self) -> int:
+        return self.monitor_poll_interval
+
+    @property
+    def lookback_hours(self) -> int:
+        return self.monitor_lookback_hours
+
+    @property
+    def notify_lang(self) -> str:
+        return self.monitor_notify_lang
+
+    @property
+    def service(self) -> ServiceConfig:
+        return ServiceConfig(host=self.monitor_host, port=self.monitor_port)
+
+    @property
+    def sources(self) -> SourcesConfig:
+        return SourcesConfig(
+            twitterapi_io=TwitterapiIoConfig(api_key=self.twitterapi_io_key),
+            rsshub=RsshubConfig(
+                base_url=self.rsshub_base_url, route=self.rsshub_route, access_key=self.rsshub_access_key
+            ),
+        )
+
+    @property
+    def notifiers(self) -> NotifiersConfig:
+        return NotifiersConfig(
+            feishu=FeishuConfig(webhook=self.feishu_webhook),
+            dingtalk=DingtalkConfig(webhook=self.dingtalk_webhook),
+            wecom=WecomConfig(webhook=self.wecom_webhook),
+            bark=BarkConfig(server_url=self.bark_url),
+            telegram=TelegramConfig(bot_token=self.tg_bot_token, chat_id=self.tg_chat_id),
+        )
+
+    @property
+    def matcher(self) -> MatcherConfig:
+        raw = self.monitor_rules_json
+        if not raw:
+            return MatcherConfig()
+        try:
+            parsed = json.loads(raw)
+            if not isinstance(parsed, list) or not parsed:
+                raise ValueError("必须是非空数组")
+            return MatcherConfig(rules=[RuleConfig(**r) for r in parsed])
+        except (ValueError, TypeError) as e:
+            log.warning("MONITOR_RULES_JSON 解析失败（%s），使用内置默认规则", e)
+            return MatcherConfig()
+
+
+def load_config() -> Settings:
+    """加载配置：OS 环境变量 > .env（ROOT 下）> 内置默认值。"""
+    return Settings()

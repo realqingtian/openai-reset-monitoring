@@ -468,6 +468,25 @@ try {
   .entry-link svg { transition: transform 0.45s var(--ease); }
   .entry-link:hover { color: var(--text); }
   .entry-link:hover svg { transform: translate(1.5px, -1.5px); }
+  /* ---------- 帖子翻译：操作按钮 + 译文块 ---------- */
+  .entry-links { display: flex; align-items: center; gap: 16px; margin-top: 9px; flex-wrap: wrap; }
+  .entry-links .entry-link { margin-top: 0; }
+  .entry-act {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em;
+    color: var(--muted); background: none; border: none; padding: 0; cursor: pointer;
+    transition: color 0.4s var(--ease);
+  }
+  .entry-act:hover { color: var(--text); }
+  .entry-act:disabled { opacity: 0.55; cursor: wait; }
+  .entry-act.loading svg { animation: spin 0.8s linear infinite; }
+  .entry-tr { margin: 10px 0 0; padding: 2px 0 2px 12px; border-left: 2px solid var(--hit-accent); }
+  .entry-tr .tr-text { margin: 0; white-space: pre-wrap; word-break: break-word; font-size: 13.5px; }
+  .tr-tag {
+    display: inline-block; margin-bottom: 5px;
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em;
+    color: var(--pill-hit-fg); border: 1px solid var(--pill-hit-line); border-radius: 999px; padding: 1px 8px;
+  }
 
   .empty { color: var(--faint); font-size: 13px; border: 1px dashed var(--line); border-radius: 18px; padding: 20px; text-align: center; }
 
@@ -739,6 +758,8 @@ const I18N = {
     pubTip: "帖子真实发布时间 · UTC+0 · 加 8 小时即北京时间（X 上显示的时间）", localTip: "发布时间换算到 {tz}（{off}）", agoTip: "距现在多久发布的 · 随每次刷新更新",
     hitPill: "命中 · {rule}", pushed: "已推送", hitShort: "命中",
     viewOnX: "在 X 上查看",
+    translate: "翻译", translating: "翻译中…", hideTrans: "收起译文",
+    trTag: "机器译文 · {p}", trSame: "原文已是中文，无需翻译", trFail: "翻译失败，请稍后重试",
     okStat: "成功 · {n} 条 · {ms}", failStat: "失败",
     toastDone: "检查完成", toastCheckFail: "检查失败：{e}",
     toastNoChannel: "没有已启用且配置好的通知渠道（检查面板上的渠道状态）",
@@ -774,6 +795,8 @@ const I18N = {
     pubTip: "True post time · UTC+0 · +8h = Beijing time (as shown on X)", localTip: "Post time in {tz} ({off})", agoTip: "Elapsed time since publish · updates on each refresh",
     hitPill: "Hit · {rule}", pushed: "Pushed", hitShort: "Hit",
     viewOnX: "View on X",
+    translate: "Translate", translating: "Translating…", hideTrans: "Hide translation",
+    trTag: "Translation · {p}", trSame: "Already in English, no translation needed", trFail: "Translation failed, try again later",
     okStat: "OK · {n} tweets · {ms}", failStat: "Failed",
     toastDone: "Check finished", toastCheckFail: "Check failed: {e}",
     toastNoChannel: "No enabled & configured channel (check the channel status on the panel)",
@@ -841,6 +864,8 @@ function setLang(mode) {
   syncDropTrigger();
   if (!document.hidden && document.startViewTransition) document.startViewTransition(applyI18n);
   else applyI18n();
+  // 同步更新 lang，消除“refresh 重绘早于语言切换回调”的竞态（applyI18n 幂等，稍后照常执行视觉过渡）
+  lang = resolveLang();
   refresh();
 }
 const langDrop = $("#langDrop");
@@ -959,10 +984,15 @@ function localOffsetLabel() {
 const localTZName = (() => {
   try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (e) { return ""; }
 })();
+/* 后端 /api/* 统一返回 {code, data, message} 包体：非 2xx、包体非法或 code!==200 时抛错，成功返回 data */
 async function j(url, opt) {
   const r = await fetch(url, opt);
-  if (!r.ok) throw new Error(`${url} -> HTTP ${r.status}`);
-  return r.json();
+  let body = null;
+  try { body = await r.json(); } catch (e) { body = null; }
+  if (!r.ok || !body || body.code !== 200) {
+    throw new Error((body && body.message) || `HTTP ${r.status}`);
+  }
+  return body.data;
 }
 let toastTimer = null;
 function toast(msg, ok = true) {
@@ -1055,6 +1085,57 @@ function renderSources(st) {
   $("#ntfRows").innerHTML = ntf.join("");
 }
 
+/* ---------- 帖子翻译：前端 Map + 后端 SQLite 双层缓存，重渲染后自动恢复 ---------- */
+const transCache = new Map();
+const PROVIDER_LABEL = { google: "Google", mymemory: "MyMemory" };
+const SVG_LANG = '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8l6 6M4 14l6-6 2-3M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6"/></svg>';
+/* 翻译目标跟随面板语言；原文已是目标语言时不显示按钮 */
+function targetLang() { return lang === "zh" ? "zh" : "en"; }
+function looksLike(text, tl) {
+  const s = (text || "").replace(/\s+/g, "");
+  if (!s) return false;
+  if (tl === "zh") {
+    const cjk = (s.match(/[\u3400-\u9fff\uf900-\ufaff]/g) || []).length;
+    return cjk / s.length >= 0.25;
+  }
+  const ascii = (s.match(/[A-Za-z]/g) || []).length;
+  return ascii / s.length >= 0.7;
+}
+function setTransBtn(btn, translated) {
+  btn.querySelector(".act-label").textContent = t(translated ? "hideTrans" : "translate");
+}
+function fillTransBox(box, text, provider) {
+  const p = PROVIDER_LABEL[provider] || (lang === "zh" ? "机翻" : "MT");
+  box.innerHTML = `<span class="tr-tag">${esc(t("trTag", { p }))}</span><p class="tr-text">${esc(text)}</p>`;
+}
+async function toggleTranslate(btn) {
+  const id = btn.dataset.id;
+  const trBox = btn.closest(".tcard")?.querySelector(".entry-tr");
+  if (!trBox) return;
+  if (transCache.has(id)) { trBox.hidden = !trBox.hidden; setTransBtn(btn, !trBox.hidden); return; }
+  btn.disabled = true; btn.classList.add("loading");
+  btn.querySelector(".act-label").textContent = t("translating");
+  try {
+    const res = await j(`/api/translate?id=${encodeURIComponent(id)}&to=${targetLang()}`);
+    if (res.same) { toast(t("trSame")); btn.querySelector(".act-label").textContent = t("translate"); }
+    else {
+      transCache.set(id, { text: res.text, provider: res.provider || "" });
+      fillTransBox(trBox, res.text, res.provider || "");
+      trBox.hidden = false;
+      setTransBtn(btn, true);
+    }
+  } catch (err) {
+    toast(t("trFail"), false);
+    btn.querySelector(".act-label").textContent = t("translate");
+  } finally {
+    btn.disabled = false; btn.classList.remove("loading");
+  }
+}
+$("#tweetList").addEventListener("click", (ev) => {
+  const btn = ev.target.closest(".entry-act");
+  if (btn) toggleTranslate(btn);
+});
+
 const seenIds = new Set();
 function tweetCard(tw, isNew, idx) {
   const pills = [sourceChip(tw.source)];
@@ -1065,6 +1146,10 @@ function tweetCard(tw, isNew, idx) {
   }
   const cls = ["tentry", tw.matched ? "hit" : "", isNew ? "new" : ""].filter(Boolean).join(" ");
   const cardStyle = isNew ? ` style="animation-delay:${Math.min(idx * 70, 350)}ms"` : "";
+  const canTrans = !looksLike(tw.text, targetLang());
+  const actBtn = canTrans
+    ? `<button class="entry-act" type="button" data-id="${esc(tw.id)}">${SVG_LANG}<span class="act-label">${esc(t("translate"))}</span></button>`
+    : "";
   return `<article class="${cls}">
     <span class="tnode" aria-hidden="true"></span>
     <div class="tstamps">
@@ -1075,7 +1160,11 @@ function tweetCard(tw, isNew, idx) {
     <div class="tcard"${cardStyle}>
       <div class="t-pills">${pills.join("")}</div>
       <p class="entry-text">${hl(tw.text, tw.matched_terms)}</p>
-      <a class="entry-link" href="${esc(tw.url)}" target="_blank" rel="noopener">${esc(t("viewOnX"))} ${SVG_LINK}</a>
+      <div class="entry-tr" data-tr="${esc(tw.id)}" hidden></div>
+      <div class="entry-links">
+        <a class="entry-link" href="${esc(tw.url)}" target="_blank" rel="noopener">${esc(t("viewOnX"))} ${SVG_LINK}</a>
+        ${actBtn}
+      </div>
     </div>
   </article>`;
 }
@@ -1087,6 +1176,13 @@ function renderTweetList(el, list) {
     ? list.map((tw, i) => tweetCard(tw, freshIdx.has(tw.id), freshIdx.get(tw.id) || 0)).join("")
     : "";
   list.forEach((tw) => seenIds.add(tw.id));
+  /* 面板每 60 秒整表重绘，把已取到的译文恢复回去，避免翻译状态丢失 */
+  el.querySelectorAll(".entry-act").forEach((btn) => {
+    const c = transCache.get(btn.dataset.id);
+    if (!c) return;
+    const box = btn.closest(".tcard")?.querySelector(".entry-tr");
+    if (box) { fillTransBox(box, c.text, c.provider); box.hidden = false; setTransBtn(btn, true); }
+  });
 }
 
 function renderHitList(list) {
