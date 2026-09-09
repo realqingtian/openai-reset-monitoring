@@ -170,7 +170,7 @@ try {
   /* ---------- floating glass nav ---------- */
   .nav { position: sticky; top: 0; z-index: 40; }
   .nav-inner {
-    max-width: 1220px; margin: 14px auto 0; padding: 8px 8px 8px 20px;
+    max-width: 1320px; margin: 14px auto 0; padding: 8px 8px 8px 20px;
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
     background: var(--nav-bg); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
     border: 1px solid var(--line); border-radius: 999px;
@@ -289,11 +289,11 @@ try {
   .btn svg { display: block; }
 
   /* ---------- dashboard grid ---------- */
-  .wrap { position: relative; z-index: 1; max-width: 1220px; margin: 0 auto; padding: 26px 20px 56px; }
+  .wrap { position: relative; z-index: 1; max-width: 1320px; margin: 0 auto; padding: 26px 20px 56px; }
   .dash { display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px; align-items: start; }
-  .main { grid-column: span 8; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .main { grid-column: span 7; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
   .rail {
-    grid-column: span 4; position: sticky; top: 80px;
+    grid-column: span 5; position: sticky; top: 80px;
     display: flex; flex-direction: column; gap: 14px; min-width: 0;
   }
   @media (max-width: 1024px) {
@@ -485,7 +485,8 @@ try {
   .h-time { font-family: var(--font-mono); font-size: 11px; color: var(--faint); flex-shrink: 0; font-variant-numeric: tabular-nums; }
   .h-text {
     flex: 1; min-width: 0; font-size: 12.5px; color: var(--muted);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+    overflow: hidden; word-break: break-word;
     transition: color 0.3s var(--ease);
   }
   .hrow:hover .h-text { color: var(--text); }
@@ -501,7 +502,7 @@ try {
   .rail .logrow, .rail .log-stat { font-size: 11px; }
   .logrow + .logrow { border-top: 1px solid var(--table-line); }
   .log-time { font-family: var(--font-mono); font-size: 11px; color: var(--faint); white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .log-src { font-family: var(--font-mono); font-size: 12px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .log-src { font-family: var(--font-mono); font-size: 12px; flex-shrink: 0; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .log-stat { color: var(--muted); margin-left: auto; white-space: nowrap; }
   .pager { display: flex; align-items: center; gap: 6px; }
   .pg-btn {
@@ -519,6 +520,8 @@ try {
     margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--line);
     color: var(--faint); font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.02em;
   }
+  .foot-desc { max-width: 720px; line-height: 1.8; }
+  .foot-meta { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px 18px; }
 
   /* ---------- toast ---------- */
   .toast {
@@ -732,8 +735,8 @@ const I18N = {
     feedEmpty: "窗口内暂无帖子，等待下次自动检查，或点击右上角“立即检查”。",
     hitEmpty: "暂无命中记录。命中“重置公告”的推文会出现在这里。",
     logEmpty: "暂无检查记录",
-    stampPub: "发布 UTC {t}", stampLocal: "本地 {t}",
-    pubTip: "帖子发布时间 · UTC 时区", localTip: "你的本地时间 · {tz} ({off})",
+    stampPub: "发布 UTC+0 {t}", stampLocal: "{off} {t}", stampAgo: "{ago}发布",
+    pubTip: "帖子真实发布时间 · UTC+0 · 加 8 小时即北京时间（X 上显示的时间）", localTip: "发布时间换算到 {tz}（{off}）", agoTip: "距现在多久发布的 · 随每次刷新更新",
     hitPill: "命中 · {rule}", pushed: "已推送", hitShort: "命中",
     viewOnX: "在 X 上查看",
     okStat: "成功 · {n} 条 · {ms}", failStat: "失败",
@@ -742,6 +745,8 @@ const I18N = {
     toastSent: "测试消息已发送到 {n} 个渠道：{chs}",
     toastSendFail: "发送失败：{e}", toastLoadFail: "面板数据加载失败：{e}",
     prevPage: "上一页", nextPage: "下一页",
+    footDesc: "持续监测 X 平台的 Codex 使用额度重置公告，命中后自动推送至全部已配置的通知渠道；数据每 {n} 分钟轮询更新，仅供个人运维参考。",
+    footMeta: "© {year} {name} · 页面每 60 秒自动刷新",
   },
   en: {
     check: "Check now", checking: "Checking…", testNotify: "Send test notification",
@@ -765,8 +770,8 @@ const I18N = {
     feedEmpty: "No posts in the window yet. Waiting for the next check, or click \"Check now\".",
     hitEmpty: "No hits yet. Tweets matching the reset announcement will appear here.",
     logEmpty: "No check logs yet",
-    stampPub: "Published UTC {t}", stampLocal: "Local {t}",
-    pubTip: "Post time · UTC", localTip: "Your local time · {tz} ({off})",
+    stampPub: "Published UTC+0 {t}", stampLocal: "{off} {t}", stampAgo: "posted {ago}",
+    pubTip: "True post time · UTC+0 · +8h = Beijing time (as shown on X)", localTip: "Post time in {tz} ({off})", agoTip: "Elapsed time since publish · updates on each refresh",
     hitPill: "Hit · {rule}", pushed: "Pushed", hitShort: "Hit",
     viewOnX: "View on X",
     okStat: "OK · {n} tweets · {ms}", failStat: "Failed",
@@ -775,6 +780,8 @@ const I18N = {
     toastSent: "Test notification sent to {n} channel(s): {chs}",
     toastSendFail: "Send failed: {e}", toastLoadFail: "Failed to load panel data: {e}",
     prevPage: "Previous page", nextPage: "Next page",
+    footDesc: "Continuous monitoring of Codex usage-reset announcements on X, with instant push to all configured channels. Data polls every {n} min; for personal ops reference only.",
+    footMeta: "© {year} {name} · auto-refreshes every 60s",
   },
 };
 function detectLang() {
@@ -927,12 +934,12 @@ function ago(iso) {
   if (s < 86400) { const h = Math.floor(s / 3600); return zh ? `${h} 小时前` : `${h}h ago`; }
   const d = Math.floor(s / 86400); return zh ? `${d} 天前` : `${d}d ago`;
 }
-/* 时间统一输出 年-月-日 时:分:秒 */
+/* 时间统一输出 年-月-日 时:分:秒，本地时间附时区偏移标注（推送文案同款 UTC/UTC+8 风格） */
 function fmt(iso) {
   if (!iso) return "—";
-  return fmtLocal(iso);
+  return `${fmtLocal(iso)} ${localOffsetLabel()}`;
 }
-/* 发布时间统一以 UTC 存储，这里分别输出 UTC 与本地时区两种标识 */
+/* 发布时间统一以 UTC 存储（真实发布时间），这里按 UTC 输出；加 8 小时即 X 上显示的北京时间 */
 function fmtUTC(iso) {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -1062,7 +1069,8 @@ function tweetCard(tw, isNew, idx) {
     <span class="tnode" aria-hidden="true"></span>
     <div class="tstamps">
       <span class="stamp-publish" title="${esc(t("pubTip"))}">${esc(t("stampPub", { t: fmtUTC(tw.created_at) }))}</span>
-      <span class="stamp-local" title="${esc(t("localTip", { tz: localTZName, off: localOffsetLabel() }))}"><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>${esc(t("stampLocal", { t: fmtLocal(tw.created_at) }))}</span>
+      <span class="stamp-local" title="${esc(t("localTip", { tz: localTZName, off: localOffsetLabel() }))}"><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>${esc(t("stampLocal", { off: localOffsetLabel(), t: fmtLocal(tw.created_at) }))}</span>
+      <span class="pill" title="${esc(t("agoTip"))}">${esc(t("stampAgo", { ago: ago(tw.created_at) }))}</span>
     </div>
     <div class="tcard"${cardStyle}>
       <div class="t-pills">${pills.join("")}</div>
@@ -1153,8 +1161,9 @@ async function refresh() {
     allPolls = polls;
     renderPolls();
 
-    $("#foot").textContent =
-      `MONITORING ${st.accounts.map((a) => "@" + a).join(" / ").toUpperCase()} · POLL ${st.poll_interval_minutes}MIN · WINDOW ${st.lookback_hours}H · RULES ${st.rules.length} · CONFIG ${st.config_file} · ENV ${(st.env_mode || "production").toUpperCase()} · AUTO-REFRESH 60S`;
+    $("#foot").innerHTML =
+      `<div class="foot-desc">${esc(t("footDesc", { n: st.poll_interval_minutes }))}</div>` +
+      `<div class="foot-meta"><span>${esc(t("footMeta", { year: new Date().getFullYear(), name: st.site_name || "Reset Monitor" }))}</span></div>`;
 
     reveal(document);
     if (!settled) setTimeout(() => { settled = true; }, 1600);
