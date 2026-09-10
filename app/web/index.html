@@ -1087,6 +1087,8 @@ function renderSources(st) {
 
 /* ---------- 帖子翻译：前端 Map + 后端 SQLite 双层缓存，重渲染后自动恢复 ---------- */
 const transCache = new Map();
+/* 用户手动收起的译文 id：整表重绘后保持收起，不被恢复循环重新展开 */
+const transClosed = new Set();
 const PROVIDER_LABEL = { google: "Google", mymemory: "MyMemory" };
 const SVG_LANG = '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8l6 6M4 14l6-6 2-3M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6"/></svg>';
 /* 翻译目标跟随面板语言；原文已是目标语言时不显示按钮 */
@@ -1112,7 +1114,12 @@ async function toggleTranslate(btn) {
   const id = btn.dataset.id;
   const trBox = btn.closest(".tcard")?.querySelector(".entry-tr");
   if (!trBox) return;
-  if (transCache.has(id)) { trBox.hidden = !trBox.hidden; setTransBtn(btn, !trBox.hidden); return; }
+  if (transCache.has(id)) {
+    trBox.hidden = !trBox.hidden;
+    if (trBox.hidden) transClosed.add(id); else transClosed.delete(id);
+    setTransBtn(btn, !trBox.hidden);
+    return;
+  }
   btn.disabled = true; btn.classList.add("loading");
   btn.querySelector(".act-label").textContent = t("translating");
   try {
@@ -1120,6 +1127,7 @@ async function toggleTranslate(btn) {
     if (res.same) { toast(t("trSame")); btn.querySelector(".act-label").textContent = t("translate"); }
     else {
       transCache.set(id, { text: res.text, provider: res.provider || "" });
+      transClosed.delete(id);
       fillTransBox(trBox, res.text, res.provider || "");
       trBox.hidden = false;
       setTransBtn(btn, true);
@@ -1176,12 +1184,17 @@ function renderTweetList(el, list) {
     ? list.map((tw, i) => tweetCard(tw, freshIdx.has(tw.id), freshIdx.get(tw.id) || 0)).join("")
     : "";
   list.forEach((tw) => seenIds.add(tw.id));
-  /* 面板每 60 秒整表重绘，把已取到的译文恢复回去，避免翻译状态丢失 */
+  /* 面板每 60 秒整表重绘，把已取到的译文恢复回去，避免翻译状态丢失；手动收起的保持收起 */
   el.querySelectorAll(".entry-act").forEach((btn) => {
     const c = transCache.get(btn.dataset.id);
     if (!c) return;
     const box = btn.closest(".tcard")?.querySelector(".entry-tr");
-    if (box) { fillTransBox(box, c.text, c.provider); box.hidden = false; setTransBtn(btn, true); }
+    if (box) {
+      fillTransBox(box, c.text, c.provider);
+      const open = !transClosed.has(btn.dataset.id);
+      box.hidden = !open;
+      setTransBtn(btn, open);
+    }
   });
 }
 
