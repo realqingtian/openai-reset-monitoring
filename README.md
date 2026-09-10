@@ -242,7 +242,21 @@ app/
 │   ├── translate.py   # 翻译上游 API 客户端（Google / MyMemory）
 │   ├── sources/       # 数据源适配器：twitterapi_io / rsshub / demo + 自动切换
 │   └── notifiers/     # 通知渠道：feishu / dingtalk / wecom / bark / telegram
-└── web/index.html     # 监控面板（单文件，无前端构建步骤）
+└── web/               # 监控面板（原生 ES Module，无前端构建步骤）
+    ├── index.html     # 页面外壳 + 首屏防闪烁主题脚本
+    └── static/
+        ├── css/panel.css    # 全部样式（主题令牌 / 布局 / 组件 / 动效 / 移动端）
+        └── js/              # 按职责拆分的模块，main.js 负责装配
+            ├── dom.js       # 选择器 / 转义 / toast / 数字动画 / 首屏 reveal
+            ├── i18n.js      # 文案字典与语言状态（zh / en / 自动）
+            ├── format.js    # 时间格式化与命中词高亮
+            ├── api.js       # /api/* 请求封装（统一响应包体）
+            ├── theme.js     # 主题三态 + 选项卡滑块 + favicon 跟随
+            ├── icons.js     # 内联 SVG 常量
+            ├── translate.js # 译文缓存 + 展开/收起（重绘后保持手动收起状态）
+            ├── feed.js      # 信息流卡片与命中历史渲染
+            ├── panel.js     # hero / 数据源 / 检查日志渲染
+            └── main.js      # 刷新主循环、顶部按钮与跨模块联动装配
 ```
 
 ## 开源协议
