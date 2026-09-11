@@ -37,6 +37,7 @@ app/
 - **禁止**写死 Python 版本：`requires-python = ">=3.9"` 保持不变；不得恢复 `.python-version`。
 - **禁止**触碰用户运行中的服务：compose 起的 `codex-reset-monitor`、`redis`、`mysql` 等。
 - **禁止**读写 `data/monitor.db` 真实数据：冒烟测试把 `DB_PATH` 指向 `/tmp` 临时库。
+- DEMO 模式自动使用独立库 `data/demo.db`（`main.py` 导入期切换），演示数据不进生产库；`demo.db` 可随时删除重建。
 - 验证类工作用隔离方式：`uvx <tool>`、`uv run --isolated --group dev`。
 - 自起的验证资源（进程 / 容器 / 镜像 / 临时文件 / 浏览器标签）用可识别命名，收尾必须清理。
 - 演示验证用高位独立端口（18xxx），避免与用户实例冲突。

@@ -29,6 +29,10 @@ INDEX_PATH = ROOT / "app" / "web" / "index.html"
 
 # 配置在导入期加载一次：docs 开关要赶在 FastAPI 实例化前生效，lifespan 复用同一份
 CFG = config_mod.load_config()
+if CFG.demo:
+    # 演示模式强制使用独立库：演示数据绝不写入生产库 data/monitor.db
+    # （引擎惰性创建，此处改路径对启动后的首次连接生效）
+    database.DB_PATH = database.ROOT / "data" / "demo.db"
 
 
 @asynccontextmanager
