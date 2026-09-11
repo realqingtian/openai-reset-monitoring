@@ -28,6 +28,7 @@ class Tweet(Base):
     matched_terms: Mapped[Optional[str]] = mapped_column(Text)  # JSON 数组字符串，用于面板高亮
     notified: Mapped[Optional[int]] = mapped_column(Integer, server_default=sa_text("0"))
     content_hash: Mapped[Optional[str]] = mapped_column(Text)  # 内容指纹，用于跨推文去重
+    is_reply: Mapped[Optional[int]] = mapped_column(Integer)  # 是否为回复：0/1；NULL=数据源无法判定
 
     __table_args__ = (
         Index("idx_tweets_created", "created_at"),

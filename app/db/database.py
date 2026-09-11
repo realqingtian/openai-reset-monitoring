@@ -96,6 +96,9 @@ async def init_db():
             await s.execute(
                 text("UPDATE tweets SET created_at=:created WHERE id=:tid"), {"created": iso_utc(dt), "tid": r.id}
             )
+        # 旧库迁移④：回复标记列（twitterapi.io 可判定；RSS 源无法判定存 NULL，面板仅对 1 显示徽章）
+        if "is_reply" not in cols:
+            await s.execute(text("ALTER TABLE tweets ADD COLUMN is_reply INTEGER"))
         # 日志表只保留 30 天，防止长期运行无限膨胀
         cutoff = hours_ago_iso(24 * 30)
         await s.execute(text("DELETE FROM polls WHERE ts < :cutoff"), {"cutoff": cutoff})

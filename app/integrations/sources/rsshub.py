@@ -37,10 +37,14 @@ def _safe_parse(content):
 async def fetch(client, scfg: RsshubConfig, account, backfill=False, **_):
     base = (scfg.base_url or "").rstrip("/")
     route = (scfg.route or "twitter/user").strip("/")
+    url = f"{base}/{route}/{account}"
+    # twitter/user 路由默认排除回复；开启回复监控时按 routeParams 约定追加（URLSearchParams 语法）
+    if scfg.include_replies:
+        url += "/includeReplies=true"
     # 实例启用了 ACCESS_KEY 鉴权时自动附带 key 参数
     params = {"key": scfg.access_key} if scfg.access_key else None
     resp = await client.get(
-        f"{base}/{route}/{account}",
+        url,
         params=params,
         timeout=30,
         headers={"User-Agent": "Mozilla/5.0 (compatible; reset-monitor/1.0)"},
@@ -67,6 +71,8 @@ async def fetch(client, scfg: RsshubConfig, account, backfill=False, **_):
                 "url": f"https://x.com/{account}/status/{tid}",
                 "created_at": parse_dt(pub),
                 "source": "rsshub",
+                # RSS 条目无法判定是否回复，存 NULL，面板不显示回复徽章
+                "is_reply": None,
             }
         )
     return out

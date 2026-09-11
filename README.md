@@ -72,6 +72,7 @@ bash run.sh
 | `MONITOR_ACCOUNTS` | `thsottiaux` | 监控的 X 账号，逗号分隔，不带 @ |
 | `MONITOR_POLL_INTERVAL` | `5` | 轮询间隔（分钟） |
 | `MONITOR_LOOKBACK_HOURS` | `24` | 面板展示与告警窗口（小时） |
+| `MONITOR_INCLUDE_REPLIES` | `true` | 是否同时监控回复（公告偶尔以回复形式补充）；RSSHub 源无法判定回复，面板徽章仅 twitterapi.io 有 |
 | `MONITOR_HOST` / `MONITOR_PORT` | `127.0.0.1` / `8730` | 面板服务监听地址（示例配置为 `0.0.0.0:8080`） |
 | `TWITTERAPI_IO_KEY` | 空 | twitterapi.io API Key，留空停用该源 |
 | `RSSHUB_BASE_URL` | 空 | RSSHub 实例地址，留空停用该源 |
@@ -92,7 +93,7 @@ bash run.sh
 
 1. 注册 [twitterapi.io](https://twitterapi.io)，充值后创建 API Key
 2. 在 `.env` 里填 `TWITTERAPI_IO_KEY=你的Key`
-3. 成本：按量计费，增量轮询（每 5 分钟拉 1 页 ≈ 20 条）月成本约几美元，以官网价格为准
+3. 成本：按量计费，增量轮询（每 5 分钟拉 1~2 页 ≈ 20~40 条，回复监控开启时为 2 页）月成本约几美元，以官网价格为准
 
 **方案二：RSSHub（免费）**
 

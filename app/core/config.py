@@ -91,6 +91,8 @@ class TwitterapiIoConfig(BaseModel):
     """twitterapi.io 数据源：填了 API Key 即启用。"""
 
     api_key: str = ""
+    # 接口默认只返回主贴；公告偶尔也会以回复形式发出（如停售公告的后续补充），默认一并监控
+    include_replies: bool = True
 
     @property
     def enabled(self) -> bool:
@@ -103,6 +105,8 @@ class RsshubConfig(BaseModel):
     base_url: str = ""
     route: str = "twitter/user"
     access_key: str = ""
+    # twitter/user 路由默认排除回复，开启时在路由末段追加 includeReplies=true
+    include_replies: bool = True
 
     @property
     def enabled(self) -> bool:
@@ -176,6 +180,7 @@ class Settings(BaseSettings):
     monitor_host: str = "127.0.0.1"
     monitor_port: int = 8730
     monitor_accounts: str = "thsottiaux"
+    monitor_include_replies: bool = True
     monitor_poll_interval: int = 5
     monitor_lookback_hours: int = 24
     monitor_notify_lang: str = "zh"
@@ -267,9 +272,14 @@ class Settings(BaseSettings):
     @property
     def sources(self) -> SourcesConfig:
         return SourcesConfig(
-            twitterapi_io=TwitterapiIoConfig(api_key=self.twitterapi_io_key),
+            twitterapi_io=TwitterapiIoConfig(
+                api_key=self.twitterapi_io_key, include_replies=self.monitor_include_replies
+            ),
             rsshub=RsshubConfig(
-                base_url=self.rsshub_base_url, route=self.rsshub_route, access_key=self.rsshub_access_key
+                base_url=self.rsshub_base_url,
+                route=self.rsshub_route,
+                access_key=self.rsshub_access_key,
+                include_replies=self.monitor_include_replies,
             ),
         )
 

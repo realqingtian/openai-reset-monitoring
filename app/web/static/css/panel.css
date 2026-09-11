@@ -372,6 +372,9 @@ html.theming .nav-inner, html.theming .toast {
 /* ---------- sections & feed ---------- */
 .sec-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 2px; padding: 2px 6px; }
 .sec-title { font-family: var(--font-display); font-size: 16px; font-weight: 600; letter-spacing: -0.01em; margin: 0; }
+/* 回复过滤开关：靠右的小型复选项，只用既有变量保证深浅主题一致 */
+.reply-toggle { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); cursor: pointer; user-select: none; white-space: nowrap; }
+.reply-toggle input { accent-color: var(--pill-hit-fg); margin: 0; cursor: pointer; }
 
 /* ---------- 时间轴信息流 ---------- */
 .time-wrap { position: relative; }

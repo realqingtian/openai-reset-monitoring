@@ -16,7 +16,10 @@ def is_configured(scfg: TwitterapiIoConfig) -> bool:
 async def fetch(client, scfg: TwitterapiIoConfig, account, backfill=False, **_):
     headers = {"X-API-Key": scfg.api_key}
     params = {"userName": account}
-    max_pages = 5 if backfill else 1  # 首次运行回填历史，之后每次只拉最新一页（增量）
+    if scfg.include_replies:
+        params["includeReplies"] = "true"
+    # 首次运行回填历史（多页拿全）；增量时回复模式多拉一页，防止回复在轮询间隔内刷过单页窗口
+    max_pages = 5 if backfill else (2 if scfg.include_replies else 1)
     out: list[dict[str, Any]] = []
     cursor: Optional[str] = None
     for page in range(max_pages):
@@ -48,6 +51,7 @@ async def fetch(client, scfg: TwitterapiIoConfig, account, backfill=False, **_):
                     "url": t.get("url") or f"https://x.com/{account}/status/{tid}",
                     "created_at": parse_dt(t.get("createdAt")),
                     "source": "twitterapi_io",
+                    "is_reply": 1 if t.get("isReply") else 0,
                 }
             )
         if not data.get("has_next_page") or not data.get("next_cursor"):

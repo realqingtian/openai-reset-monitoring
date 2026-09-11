@@ -19,6 +19,7 @@ class TweetOut(BaseModel):
     rule_name: Optional[str] = None
     matched_terms: list[str] = []
     notified: bool
+    is_reply: Optional[bool] = None
 
     @field_validator("matched_terms", mode="before")
     @classmethod

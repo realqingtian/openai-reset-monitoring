@@ -27,6 +27,7 @@ async def upsert_tweet(t: dict[str, Any]) -> bool:
                 fetched_at=iso_utc(),
                 source=t["source"],
                 content_hash=content_hash(t["text"]),
+                is_reply=t.get("is_reply"),
             )
             .on_conflict_do_nothing(index_elements=["id"])
         )

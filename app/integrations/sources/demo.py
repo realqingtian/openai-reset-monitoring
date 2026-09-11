@@ -25,6 +25,7 @@ def _sample_tweets(account="thsottiaux"):
             "Happy Monday you all. Hope it is a fantastic week.",
             "url": f"https://x.com/{account}/status/2086972933566857393",
             "created_at": at(6),
+            "is_reply": 0,
         },
         {
             "id": "demo-1002",
@@ -34,6 +35,7 @@ def _sample_tweets(account="thsottiaux"):
             "Also exploring better context compression for long running tasks.",
             "url": f"https://x.com/{account}/status/2086000000000000001",
             "created_at": at(2),
+            "is_reply": 1,
         },
         {
             "id": "demo-1003",
@@ -43,6 +45,7 @@ def _sample_tweets(account="thsottiaux"):
             "Root cause looks like an upstream provider issue. Will share updates here.",
             "url": f"https://x.com/{account}/status/2086000000000000002",
             "created_at": at(11),
+            "is_reply": 0,
         },
         {
             "id": "demo-1004",
@@ -52,6 +55,7 @@ def _sample_tweets(account="thsottiaux"):
             "and built with us all weekend.",
             "url": f"https://x.com/{account}/status/2086000000000000003",
             "created_at": at(20),
+            "is_reply": 0,
         },
         {
             "id": "demo-1005",
@@ -61,6 +65,7 @@ def _sample_tweets(account="thsottiaux"):
             "This is a hard reset given some users had stacked up to three weeks of usage.",
             "url": f"https://x.com/{account}/status/2071381664853319742",
             "created_at": at(30),
+            "is_reply": 0,
         },  # 超出 24 小时窗口，用于验证窗口过滤
     ]
 
