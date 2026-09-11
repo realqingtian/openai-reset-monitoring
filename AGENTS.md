@@ -40,6 +40,7 @@ app/
 - DEMO 模式自动使用独立库 `data/demo.db`（`main.py` 导入期切换），演示数据不进生产库；`demo.db` 可随时删除重建。
 - 验证类工作用隔离方式：`uvx <tool>`、`uv run --isolated --group dev`。
 - 自起的验证资源（进程 / 容器 / 镜像 / 临时文件 / 浏览器标签）用可识别命名，收尾必须清理。
+- **禁止**拉起系统安装的 Chrome 等本机浏览器做验证：浏览器验证一律用 ZCode 内置浏览器（browser-use），仅在内置浏览器确实无法胜任且经用户同意时才可使用系统浏览器。
 - 演示验证用高位独立端口（18xxx），避免与用户实例冲突。
 
 ## 质量门
@@ -87,7 +88,7 @@ app/
 
 ## 已知取舍（禁止「顺手优化」）
 
-- 回复监控默认开启（`MONITOR_INCLUDE_REPLIES`）：公告偶尔以回复形式补充；twitterapi.io 增量翻页随之 1→2 页（防回复风暴刷过单页窗口），RSSHub 靠路由段 `includeReplies=true` 且无法判定回复（`is_reply` 存 NULL 无徽章）；回复命中同样推送，面板用「隐藏回复」客户端过滤降噪。
+- 回复监控当前临时关闭（`.env` 显式 `MONITOR_INCLUDE_REPLIES=false`；代码默认 true，注释掉无效）：自建 RSSHub 的 `includeReplies=true` 路由因 X 反爬拦截 `UserTweetsAndReplies` 恒返回空 feed（上游 DIYgod/RSSHub#22964，修复 PR #22967 合并后拉新镜像、改回 true 并 revert 面板「隐藏回复」过滤的移除提交）。恢复后注意：twitterapi.io 增量翻页随之 1→2 页（防回复风暴刷过单页窗口）；RSSHub 无法判定回复（`is_reply` 存 NULL 无徽章）；回复命中同样推送。
 - 检查日志面板固定取最近 200 条（`/api/polls?limit=200`，API 上限 200），数据库保留 30 天；徽章有悬停说明。
 - 推送按渠道粒度判定送达：全部尝试渠道成功才标记已推送；失败渠道由每轮轮询开头的补推扫描只向失败渠道重发；命中时未配置渠道的推文不补推（面板历史仍在）。
 - repositories 逐函数一 session、逐条事务，WAL 下够用；批量优化需整体权衡再做。
@@ -96,6 +97,6 @@ app/
 ## 验证要求
 
 - 后端逻辑改动：`/tmp` 临时库冒烟通过后再交付。
-- 前端改动：起 DEMO 实例用浏览器看渲染、查 console。
+- 前端改动：起 DEMO 实例，用 ZCode 内置浏览器（browser-use）看渲染、查 console。
 - Dockerfile / compose 改动：实际 `docker build` + `docker run` 起容器验证。
 - 构建网络：镜像源走 DaoCloud 前缀 + 清华 PyPI 镜像，**禁止**引入 ghcr.io 直连。
