@@ -3,7 +3,7 @@
 中文 | [English](README.en.md)
 
 监控 X（Twitter）用户 [@thsottiaux](https://x.com/thsottiaux)（Tibo · OpenAI Codex 负责人）最近 24 小时的公开帖子，
-命中"**全球重置付费订阅用量**"类公告时，在面板高亮告警并推送到飞书 / 钉钉 / 企业微信 / Bark / Telegram。
+命中"**全球重置付费订阅用量**"与"**订阅暂停/恢复**"类公告时，在面板高亮告警并推送到飞书 / 钉钉 / 企业微信 / Bark / Telegram。
 
 > 背景：Tibo 已形成"每周一重置"的规律（如 *"Usage limits have been reset for all paid ChatGPT Work and Codex users"*），
 > 本工具帮你在第一时间知道重置发生。
@@ -142,12 +142,16 @@ https://x.com/thsottiaux/status/…
 
 ### 命中规则
 
-内置三条规则（保存在 `app/core/config.py` 的 `DEFAULT_RULES`），逻辑：**同一条规则内所有关键词全部命中（忽略大小写）才触发**。
+内置五条规则（保存在 `app/core/config.py` 的 `DEFAULT_RULES`），逻辑：**同一条规则内所有关键词全部命中（忽略大小写）才触发**。
 
 - **英文规则**：`reset` ∧ `usage/rate limits` ∧ (`paid`/`everyone`/`all`/`codex`…) —— 覆盖
   *"Usage limits have been reset for all paid…"*、*"I have reset everyone's Codex usage limits"* 等措辞
 - **中文规则**：`重置` ∧ (`用量`/`限额`/`额度`/`付费`/`订阅`/`全球`) —— 兜底
 - **英文宽松规则**：`reset` ∧ `usage/rate limits` —— 兜底 *"I will reset usage limits this evening"* 这类预告
+- **订阅暂停·英文**：`pause/suspend/halt/stop/close/on hold/no longer` ∧ (`subscription`/`sign-up`) ——
+  覆盖 *"we're pausing subscriptions to our $200 Pro plan"* 这类停售公告
+- **订阅恢复·英文**：`reopen/resume/unpause/back/again` ∧ (`subscription`/`sign-up`/`pro`) ——
+  覆盖 *"Pro subscriptions are back"* 这类恢复公告（动作词刻意放宽：误报代价只是一次推送，漏报代价是错过恢复）
 
 误报或漏报时，用 `MONITOR_RULES_JSON` 环境变量覆盖（JSON 数组，结构与内置一致；写错会自动回退内置规则并记录日志）。
 想监控其他账号（如 @sama、@OpenAI），把 `MONITOR_ACCOUNTS` 改成逗号分隔即可。

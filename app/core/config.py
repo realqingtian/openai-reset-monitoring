@@ -47,6 +47,26 @@ DEFAULT_RULES: list[dict] = [
             r"(?:usage|rate)[ _-]?limits?",
         ],
     },
+    {
+        # 订阅停售/暂停类公告：如 "we're pausing subscriptions to our $200 Pro plan"。
+        # 动作词与对象词双条件，避免日常推文里单个词误报。
+        "name": "订阅暂停·英文",
+        "enabled": True,
+        "all_patterns": [
+            r"\b(?:paus\w+|suspend\w*|halt(?:ed|ing|s)?|stop(?:s|ped|ping)?|clos(?:e|es|ed|ing)|on\s+hold|no\s+longer)\b",
+            r"\bsubscri\w*|\bsign[- ]?ups?\b|\bsign(?:ing)?\s+up\b",
+        ],
+    },
+    {
+        # 订阅恢复/重开类公告：如 "Pro subscriptions are back"。
+        # 恢复时机比暂停更难等，动作词放宽（back/again）：误报代价只是一次推送，漏报代价是错过恢复。
+        "name": "订阅恢复·英文",
+        "enabled": True,
+        "all_patterns": [
+            r"re-?open\w*|resum\w*|unpaus\w*|\b(?:is|are|was|were)\s+back\b|[’\']s\s+back\b|bring\w*\s+back\b|\bnow\s+(?:live|available|open)\b|\bagain\b",
+            r"\bsubscri\w*|\bsign[- ]?ups?\b|\bsign(?:ing)?\s+up\b|\bpro\b",
+        ],
+    },
 ]
 
 
