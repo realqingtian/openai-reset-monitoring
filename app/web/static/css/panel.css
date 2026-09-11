@@ -422,8 +422,27 @@ html.theming .nav-inner, html.theming .toast {
 }
 .pill-hit { color: var(--pill-hit-fg); border-color: var(--pill-hit-line); }
 .pill-term { color: var(--pill-term-fg); border-color: var(--pill-term-line); }
-/* 检查日志条数徽章：悬停有范围说明（title），用 help 光标暗示可悬停 */
-#logCount { cursor: help; }
+/* 检查日志条数徽章：悬停/聚焦弹出范围说明气泡（自定义实现，替代延迟高、易被忽略的原生 title） */
+#logCount { position: relative; cursor: help; }
+#logCount::after {
+  content: attr(data-tip);
+  position: absolute; top: calc(100% + 8px); left: -4px;
+  width: max-content; max-width: 300px;
+  padding: 7px 11px; border-radius: 9px;
+  background: var(--core-grad); border: 1px solid var(--line-strong);
+  box-shadow: 0 14px 34px -18px rgba(0, 0, 0, 0.65);
+  color: var(--text);
+  font-family: var(--font-sans); font-size: 12px; letter-spacing: normal;
+  text-transform: none; line-height: 1.55; text-align: left; white-space: normal;
+  opacity: 0; transform: translateY(-3px);
+  pointer-events: none; z-index: 30;
+  transition: opacity 0.16s var(--ease), transform 0.16s var(--ease);
+}
+#logCount:hover::after, #logCount:focus-visible::after {
+  opacity: 1; transform: translateY(0);
+  /* 出现稍作延迟避免误触；移开鼠标立即消失（延迟取自目标态） */
+  transition-delay: 0.25s;
+}
 .src-chip {
   display: inline-flex; align-items: center; gap: 5px;
   font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em;

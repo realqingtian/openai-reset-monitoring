@@ -109,6 +109,10 @@ function applyI18n() {
     el.title = t(el.dataset.i18nTitle);
     el.setAttribute("aria-label", t(el.dataset.i18nTitle));
   });
+  document.querySelectorAll("[data-i18n-tip]").forEach((el) => {
+    el.dataset.tip = t(el.dataset.i18nTip);
+    el.setAttribute("aria-label", t(el.dataset.i18nTip));
+  });
   $("#pgPrev").setAttribute("aria-label", t("prevPage"));
   $("#pgNext").setAttribute("aria-label", t("nextPage"));
   $$(".drop-item").forEach((b) => b.classList.toggle("active", b.dataset.lang === langMode));
