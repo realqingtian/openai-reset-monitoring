@@ -1,66 +1,99 @@
-# AGENTS.md · AI 协作规范
+# AGENTS.md
 
-面向在本仓库工作的 AI 编码助手（ZCode / Codex / Claude 等）。**开始任何工作前先读完本文件**，这些都是用户亲自确立的规矩与项目硬约束，不要等用户重复交代。
+供 AI 编码助手（ZCode / Codex / Claude 等）在本仓库工作遵循。动手前通读全文；标注「禁止」的条目曾被用户明确纠正过，不得违反。
 
-## 项目是什么
+## 项目概览
 
-监控 X 账号（@thsottiaux）的 Codex 用量重置公告：定时轮询时间线 → 正则规则命中 → 全渠道推送（飞书/钉钉/企微/Bark/Telegram）+ Web 面板展示。技术栈：FastAPI + SQLAlchemy(async) + SQLite(aiosqlite) + httpx，前端为无框架 ES 模块（`app/web/`）。运行入口 `bash run.sh`（支持 `DEMO=1` 无凭证体验）。
+监控 X 账号（@thsottiaux）的 Codex 用量重置公告：定时轮询时间线 → 正则规则命中 → 多渠道推送（飞书 / 钉钉 / 企微 / Bark / Telegram）+ Web 面板展示。
+技术栈：FastAPI + SQLAlchemy(async) + SQLite(aiosqlite) + httpx；前端为无框架 ES 模块。
 
-## 环境红线（违反会惹恼用户）
+## 常用命令
 
-- **解释器与虚拟环境由用户自己在 PyCharm 里管理**（当前 `.venv` 是 Python 3.14）。禁止代建 venv、禁止替用户选择/切换解释器。
-- 验证类工作用隔离方式，不污染项目环境：`uvx <tool>`、`uv run --isolated --group dev`、临时库冒烟。
-- `requires-python = ">=3.9"`，**不要写死具体版本**；`.python-version` 已删除，不要恢复。
-- 用户机器上运行中的服务（compose 起的 `codex-reset-monitor`、`redis`、`mysql` 等）**一律不碰**；你自己的验证资源用可识别命名，收尾必须清理（进程、容器、镜像、/tmp 文件、浏览器标签）。
-- 需要起面板验证时：`DEMO=1 MONITOR_HOST=127.0.0.1 MONITOR_PORT=18xxx .venv/bin/python -m app.main`，用高位独立端口，避免与用户实例冲突。
+| 用途 | 命令 |
+|---|---|
+| 质量检查（任何交付前必须三步全绿） | `bash check.sh` |
+| lint / 格式自动修复 | `bash check.sh --fix` |
+| 本地演示启动（无凭证体验） | `DEMO=1 MONITOR_HOST=127.0.0.1 MONITOR_PORT=18xxx .venv/bin/python -m app.main` |
+| Docker 构建验证 | `docker build -t codex-reset-monitor .` |
 
-## 质量门（交付前必须全绿）
+## 目录结构
 
-```bash
-bash check.sh        # = ruff check + ruff format --check + mypy，三步全过才算完成
-bash check.sh --fix  # 自动修复 lint 与格式
+```
+app/
+├── api/          # 路由薄壳：参数校验 + 调用 service
+├── core/         # 配置、异常、文本与时间工具
+├── db/           # 引擎、会话工厂、建表与防御迁移
+├── integrations/ # 外部世界：数据源 / 通知渠道 / 翻译（一个第三方一个模块）
+├── models/       # SQLAlchemy ORM 模型
+├── repositories/ # 数据访问（每函数一 session 的现状约定）
+├── schemas/      # Pydantic 出参模型
+├── services/     # 用例编排
+└── web/          # 静态前端（无框架 ES 模块 + panel.css）
 ```
 
-- ruff：行宽 120，规则集与豁免见 `pyproject.toml [tool.ruff]`。**RUF001-003 的豁免是给中文全角标点的，不要删**。
-- mypy：检查目标 3.10（新版 mypy 不支持 3.9 目标）；`requires-python` 保持 >=3.9 不变。
-- 前端无 linter，改动 JS 后自行在浏览器验证无报错。
+## 环境红线
 
-## Git 纪律
+- **禁止**代建虚拟环境或更换解释器：用户在 PyCharm 自管（当前 `.venv` 为 Python 3.14）。
+- **禁止**写死 Python 版本：`requires-python = ">=3.9"` 保持不变；不得恢复 `.python-version`。
+- **禁止**触碰用户运行中的服务：compose 起的 `codex-reset-monitor`、`redis`、`mysql` 等。
+- **禁止**读写 `data/monitor.db` 真实数据：冒烟测试把 `DB_PATH` 指向 `/tmp` 临时库。
+- 验证类工作用隔离方式：`uvx <tool>`、`uv run --isolated --group dev`。
+- 自起的验证资源（进程 / 容器 / 镜像 / 临时文件 / 浏览器标签）用可识别命名，收尾必须清理。
+- 演示验证用高位独立端口（18xxx），避免与用户实例冲突。
 
-- **完成一个独立、可运行的功能/修复就立即提交**——用户曾因"做了没提交 + 删目录重装环境"永久丢失过工作。
-- Conventional Commits，英文小写描述，按逻辑拆分（参考 `git log`）。
-- 只 `commit` 不 `push`，除非用户明说。
+## 质量门
+
+- 任何交付前 `bash check.sh` 必须三步全绿：ruff check + ruff format --check + mypy。
+- ruff 行宽 120；`RUF001-003` 豁免用于中文全角标点，**不得删除**。
+- mypy 检查目标 3.10（新版 mypy 不支持 3.9 目标），`requires-python` 保持 `>=3.9`。
+- 前端无 linter：改 JS 后必须在浏览器验证渲染与 console 无报错。
+
+## 安全红线
+
+- **必须** SQL 全参数绑定：ORM 表达式或 `text("... WHERE x = :p")`；**禁止**字符串拼接 / format / f-string 组装 SQL。
 - `.env` / `.venv/` / `data/` / `.idea/` 永不入库（已配置，勿改）。
-- 审查报告等个人归档文档放 `docs/` 并依赖 `.git/info/exclude` 里的 `docs/code-review-*.md` 保持本地化，**不要提交**。
+- 第三方数据（推文正文、命中词、错误信息、ID、URL）渲染到前端必须经 `esc()` 转义。
+- 链接 `href` 必须过 `dom.js:safeUrl()`（仅放行 http/https）。
+- 凭证只从环境变量 / `.env` 读取：源码、示例、测试、日志输出不得出现凭据字面量。
 
-## 代码约定（后端 Python）
+## 代码规范
 
-- 分层：`api/` 路由薄壳 → `services/` 用例 → `repositories/` 数据访问（每函数一 session 是现状约定）→ `models/` ORM。外部世界（数据源、通知渠道、翻译）在 `integrations/`，一个第三方一个模块。
-- `/api/*` 统一 `{code, data, message}` 包体；业务错误抛 `BizError`（`core/errors.py` 统一转换）；新路由参数必须 `Query(gt/le)` 校验。`/healthz` 例外（docker healthcheck 依赖原样 `{"ok": true}`）。
-- **SQL 安全红线：一律参数绑定**——ORM 表达式或 `text("... WHERE x = :p")`，禁止字符串拼接 / format / f-string 组装 SQL。
-- 原生 SQL 与名为 `text` 的列名冲突时，sqlalchemy 的 text 用 `sa_text` 别名（见 models）。
-- 中文注释，解释"为什么"而不是"做什么"。
+### 后端
 
-## 代码约定（前端 `app/web/`）
+- 分层职责：`api/` 路由薄壳 → `services/` 用例 → `repositories/` 数据访问 → `models/` ORM；外部世界一律放 `integrations/`。
+- `/api/*` 统一 `{code, data, message}` 包体；业务错误抛 `BizError`（`core/errors.py` 统一转换）；新路由参数必须 `Query(gt/le)` 校验；`/healthz` 例外（healthcheck 依赖原样 `{"ok": true}`）。
+- 原生 SQL 与名为 `text` 的列名冲突时，sqlalchemy 的 text 用 `sa_text` 别名。
+- 注释用中文，解释「为什么」而不是「做什么」。
 
-- 无框架 ES 模块，渲染用 `innerHTML` 模板拼装：**一切第三方数据（推文正文、命中词、错误信息、ID、URL）插值必须 `esc()`**；命中高亮只能走 `format.js:hl()`（先转义后替换）。
-- 链接 `href` 必须过 `dom.js:safeUrl()`（仅放行 http/https，防伪协议）。
-- 界面文案必须走 `i18n.js` 双语（静态用 `data-i18n` / `data-i18n-title`，动态用 `t()`），**不要硬编码单语文案**。
+### 前端
+
+- 界面文案必须走 `i18n.js` 双语：静态用 `data-i18n` / `data-i18n-title`，动态用 `t()`；**禁止**硬编码单语文案。
+- 命中词高亮只能走 `format.js:hl()`（先转义后替换）。
 - 样式只用 `panel.css` 的既有 CSS 变量（深浅色主题都要正常）。
 
 ## 数据库
 
-- SQLite + WAL；**表名/列名与旧库完全一致是硬约束**。改结构 = 在 `database.py:init_db` 追加防御迁移段（幂等、参数绑定），并同步 `app/models/`。`create_all` 对已有库必须是无操作。
+- SQLite + WAL；**表名 / 列名与旧库完全一致是硬约束**。
+- 结构变更 = 在 `database.py:init_db` 追加防御迁移段（幂等、参数绑定）+ 同步 `app/models/`。
+- `create_all` 对已有库必须是无操作。
 
-## 已知设计取舍（不要"顺手优化"掉）
+## Git 规范
 
-- 检查日志面板每次只取最近 200 条（`/api/polls?limit=200`，API 上限 200），数据库保留 30 天；徽章有悬停说明。
-- 推送按渠道粒度判定送达：主路径所有尝试渠道全部成功才标记已推送；失败渠道由每轮轮询开头的补推扫描只向失败渠道重发（成功渠道不重发，持续重试直至送达或滑出回看窗口）。命中时未配置任何渠道的推文无尝试记录，不参与补推（面板历史仍在）。
-- repositories 逐条事务在 WAL 下够用，批量优化需整体权衡再做。
-- 文档仅在 `MONITOR_ENV=debug` 开放；测试通知按钮/接口同样有 debug 门禁。
+- 每完成一个独立、可运行的功能 / 修复**立即 commit**（曾因未提交 + 重装环境永久丢失过工作）。
+- Conventional Commits：英文小写描述，按逻辑拆分提交。
+- 只 commit 不 push，除非用户明说。
+- 审查报告等个人归档文档放 `docs/`，依赖 `.git/info/exclude` 的 `docs/code-review-*.md` 保持本地化，**不要提交**。
 
-## 验证习惯
+## 已知取舍（禁止「顺手优化」）
 
-- 后端逻辑：把 `DB_PATH` 指到 `/tmp` 临时库做冒烟，**绝不读写 `data/monitor.db` 真实数据**。
-- 改了 Dockerfile/compose：实际 `docker build` + `docker run` 起容器验证（构建走 DaoCloud 前缀 + 清华 PyPI 镜像，别引入 ghcr.io 直连）。
-- 改前端：起 DEMO 实例用浏览器看渲染、查 console。
+- 检查日志面板固定取最近 200 条（`/api/polls?limit=200`，API 上限 200），数据库保留 30 天；徽章有悬停说明。
+- 推送按渠道粒度判定送达：全部尝试渠道成功才标记已推送；失败渠道由每轮轮询开头的补推扫描只向失败渠道重发；命中时未配置渠道的推文不补推（面板历史仍在）。
+- repositories 逐函数一 session、逐条事务，WAL 下够用；批量优化需整体权衡再做。
+- API 文档与测试通知仅在 `MONITOR_ENV=debug` 开放。
+
+## 验证要求
+
+- 后端逻辑改动：`/tmp` 临时库冒烟通过后再交付。
+- 前端改动：起 DEMO 实例用浏览器看渲染、查 console。
+- Dockerfile / compose 改动：实际 `docker build` + `docker run` 起容器验证。
+- 构建网络：镜像源走 DaoCloud 前缀 + 清华 PyPI 镜像，**禁止**引入 ghcr.io 直连。
