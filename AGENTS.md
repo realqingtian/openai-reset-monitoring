@@ -14,6 +14,7 @@
 | 质量检查（任何交付前必须三步全绿） | `bash check.sh` |
 | lint / 格式自动修复 | `bash check.sh --fix` |
 | 本地演示启动（无凭证体验） | `DEMO=1 MONITOR_HOST=127.0.0.1 MONITOR_PORT=18xxx .venv/bin/python -m app.main` |
+| 本地一键启动（真实数据，读 `.env`） | `bash run.sh`（自动建环境、装依赖后前台运行） |
 | Docker 构建验证 | `docker build -t codex-reset-monitor .` |
 
 ## 目录结构
@@ -98,5 +99,5 @@ app/
 
 - 后端逻辑改动：`/tmp` 临时库冒烟通过后再交付。
 - 前端改动：起 DEMO 实例，用 ZCode 内置浏览器（browser-use）看渲染、查 console。
-- Dockerfile / compose 改动：实际 `docker build` + `docker run` 起容器验证。
+- Dockerfile / compose 改动：有 Docker 的机器上实际 `docker build` + `docker run` 起容器验证；**无 Docker 的本地开发机器不必为此装 Docker**，用 `bash run.sh` 脚本启动验证即可，镜像级验证留给有 Docker 的环境。
 - 构建网络：镜像源走 DaoCloud 前缀 + 清华 PyPI 镜像，**禁止**引入 ghcr.io 直连。
