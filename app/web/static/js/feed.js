@@ -1,5 +1,5 @@
 /* 信息流渲染：时间轴帖子卡片、命中历史列表。 */
-import { $, esc } from "./dom.js";
+import { $, esc, safeUrl } from "./dom.js";
 import { t } from "./i18n.js";
 import { ago, fmt, fmtLocal, fmtUTC, hl, localOffsetLabel, localTZName } from "./format.js";
 import { SVG_BOLT, SVG_LANG, SVG_LINK, SVG_RSS } from "./icons.js";
@@ -41,7 +41,7 @@ function tweetCard(tw, isNew, idx) {
       <p class="entry-text">${hl(tw.text, tw.matched_terms)}</p>
       <div class="entry-tr" data-tr="${esc(tw.id)}" hidden></div>
       <div class="entry-links">
-        <a class="entry-link" href="${esc(tw.url)}" target="_blank" rel="noopener">${esc(t("viewOnX"))} ${SVG_LINK}</a>
+        <a class="entry-link" href="${esc(safeUrl(tw.url))}" target="_blank" rel="noopener">${esc(t("viewOnX"))} ${SVG_LINK}</a>
         ${actBtn}
       </div>
     </div>
@@ -64,7 +64,7 @@ function renderHitList(list) {
     el.innerHTML = `<div class="hempty">${t("hitEmpty")}</div>`;
     return;
   }
-  el.innerHTML = list.map((tw) => `<a class="hrow" href="${esc(tw.url)}" target="_blank" rel="noopener" title="${esc(tw.created_at)}">
+  el.innerHTML = list.map((tw) => `<a class="hrow" href="${esc(safeUrl(tw.url))}" target="_blank" rel="noopener" title="${esc(tw.created_at)}">
     <span class="h-time">${fmt(tw.created_at)}</span>
     <span class="h-text">${hl(tw.text, tw.matched_terms)}</span>
     <span class="pill pill-hit">${esc(t("hitShort"))}</span>

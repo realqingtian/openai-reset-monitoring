@@ -1,5 +1,5 @@
 /* 侧栏与横幅渲染：hero 状态、数据源/通知渠道、检查日志分页。 */
-import { $, animateNumber, esc, replay } from "./dom.js";
+import { $, animateNumber, esc, replay, safeUrl } from "./dom.js";
 import { lang, t } from "./i18n.js";
 import { ago, fmt } from "./format.js";
 import { SVG_ALERT, SVG_OK } from "./icons.js";
@@ -24,7 +24,7 @@ function renderHero(st) {
     ago: ago(st.last_poll_at),
   });
   const link = $("#heroLink");
-  if (hit && st.latest_hit) { link.href = st.latest_hit.url; link.hidden = false; }
+  if (hit && st.latest_hit) { link.href = safeUrl(st.latest_hit.url); link.hidden = false; }
   else { link.hidden = true; }
   $("#demoBadge").hidden = !st.demo;
   // 调试模式下才显示"发送测试通知"；生产环境（debug 非 true）保持隐藏

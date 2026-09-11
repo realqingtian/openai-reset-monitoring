@@ -3,6 +3,8 @@ const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 const esc = (s) => (s || "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+/* 第三方数据里的链接只放行 http(s)；esc() 防不住 javascript: 伪协议 */
+const safeUrl = (u) => (/^https?:\/\//i.test(String(u || "")) ? String(u) : "#");
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 let toastTimer = null;
@@ -57,4 +59,4 @@ function scheduleSettle() {
   if (!settled) setTimeout(() => { settled = true; }, 1600);
 }
 
-export { $, $$, esc, escRe, reducedMotion, toast, replay, animateNumber, reveal, scheduleSettle };
+export { $, $$, esc, escRe, safeUrl, reducedMotion, toast, replay, animateNumber, reveal, scheduleSettle };
