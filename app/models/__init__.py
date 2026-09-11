@@ -8,6 +8,7 @@ nullable=True 语义一致，业务写入方自行保证必填列有值。唯一
 不受影响（create_all 见表即跳），新建库的主键列会显式 NOT NULL（旧库建表
 时未显式声明，但主键语义本就非空，新 schema 更严格且兼容）。
 """
+
 from app.db.database import Base
 from app.models.notify_log import NotifyLog
 from app.models.poll import Poll

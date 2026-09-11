@@ -1,4 +1,5 @@
 """文本归一化、相似度判定与内容指纹。"""
+
 import hashlib
 import re
 
@@ -14,6 +15,7 @@ def texts_similar(a, b, threshold=0.8):
     autojunk 必须关闭，否则长文本里的高频字符会被当作垃圾导致相似度失真。
     """
     from difflib import SequenceMatcher
+
     if not a or not b:
         return False
     sm = SequenceMatcher(None, a, b, autojunk=False)

@@ -1,10 +1,12 @@
 """通知渠道：飞书 / 钉钉 / 企业微信 / Bark / Telegram。命中公告时全渠道并发推送，按推文 ID 与内容指纹双重去重。"""
+
 import logging
 from datetime import datetime, timedelta, timezone
 
 import httpx
 
 from app.repositories import notifies as notify_repo
+
 from . import bark, dingtalk, feishu, telegram, wecom
 
 log = logging.getLogger("notifiers")
@@ -25,11 +27,13 @@ def notifier_states(cfg):
         mod = MODULES.get(name)
         if mod is None:
             continue
-        states.append({
-            "name": name,
-            "enabled": ncfg.enabled,
-            "configured": mod.is_configured(ncfg),
-        })
+        states.append(
+            {
+                "name": name,
+                "enabled": ncfg.enabled,
+                "configured": mod.is_configured(ncfg),
+            }
+        )
     return states
 
 
@@ -46,10 +50,14 @@ NOTIFY_TEXTS = {
     "zh": {
         "hit_title": "🚨 Codex 重置监控命中",
         "colon": "：",
-        "account": "账号", "rule": "命中规则",
-        "pub_time": "发布时间", "pub_suffix": "（UTC+0）",
-        "cst_time": "发布时间", "cst_suffix": "（UTC+8）",
-        "content": "内容", "link": "直达推文",
+        "account": "账号",
+        "rule": "命中规则",
+        "pub_time": "发布时间",
+        "pub_suffix": "（UTC+0）",
+        "cst_time": "发布时间",
+        "cst_suffix": "（UTC+8）",
+        "content": "内容",
+        "link": "直达推文",
         "truncated": "…（内容过长已截断）",
         "test_title": "🔔 Codex 重置监控 · 测试消息",
         "test_body": "这是一条测试通知，说明该渠道配置正确。",
@@ -57,10 +65,14 @@ NOTIFY_TEXTS = {
     "en": {
         "hit_title": "🚨 Codex Reset Monitor Hit",
         "colon": ": ",
-        "account": "Account", "rule": "Matched rule",
-        "pub_time": "Published", "pub_suffix": "(UTC+0)",
-        "cst_time": "Published", "cst_suffix": "(UTC+8)",
-        "content": "Content", "link": "Open tweet",
+        "account": "Account",
+        "rule": "Matched rule",
+        "pub_time": "Published",
+        "pub_suffix": "(UTC+0)",
+        "cst_time": "Published",
+        "cst_suffix": "(UTC+8)",
+        "content": "Content",
+        "link": "Open tweet",
         "truncated": "… (truncated)",
         "test_title": "🔔 Codex Reset Monitor · Test",
         "test_body": "This is a test notification. The channel is configured correctly.",
@@ -102,7 +114,7 @@ async def _dispatch(cfg, client, msg, tweet_id):
             continue
         try:
             ok, err = await mod.send(client, ncfg, msg)
-        except Exception as e:  # noqa: BLE001 — 单个渠道失败不影响其他渠道
+        except Exception as e:
             ok, err = False, f"{type(e).__name__}: {e}"[:200]
         results.append({"channel": name, "ok": bool(ok), "error": err})
         await notify_repo.log_notify(tweet_id, name, ok, err)

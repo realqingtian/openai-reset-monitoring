@@ -4,9 +4,10 @@
 异常经 errors.register_exception_handlers 统一转换；/healthz 例外，
 docker healthcheck 依赖原样 {"ok": true}。
 """
+
 import asyncio
 import logging
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 from typing import Optional
 
@@ -40,10 +41,8 @@ async def lifespan(application: FastAPI):
     task = asyncio.create_task(poller.poll_loop(application))
     yield
     task.cancel()
-    try:
+    with suppress(asyncio.CancelledError):
         await task
-    except asyncio.CancelledError:
-        pass
     await application.state.client.aclose()
 
 

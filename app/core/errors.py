@@ -1,6 +1,7 @@
 """业务异常与全局异常处理：所有 /api/* 错误统一为 {code, message, errors} 包体。"""
+
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -15,7 +16,7 @@ log = logging.getLogger("errors")
 class BizError(Exception):
     """业务异常：code 即 HTTP 状态码（400/403/404/502 等），message 为可读标题，errors 为详情列表。"""
 
-    def __init__(self, code: int, message: str, errors: Optional[List[Any]] = None):
+    def __init__(self, code: int, message: str, errors: Optional[list[Any]] = None):
         super().__init__(message)
         self.code = code
         self.message = message
@@ -32,9 +33,10 @@ def register_exception_handlers(app: FastAPI):
 
     @app.exception_handler(RequestValidationError)
     async def _on_validation(request: Request, exc: RequestValidationError):
-        errors = [{"loc": [str(x) for x in e.get("loc", ())],
-                   "msg": e.get("msg", ""), "type": e.get("type", "")}
-                  for e in exc.errors()]
+        errors = [
+            {"loc": [str(x) for x in e.get("loc", ())], "msg": e.get("msg", ""), "type": e.get("type", "")}
+            for e in exc.errors()
+        ]
         body = ErrorBody(code=422, message="请求参数校验失败", errors=errors)
         return JSONResponse(content=body.model_dump(), status_code=422)
 

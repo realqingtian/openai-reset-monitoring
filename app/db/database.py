@@ -3,6 +3,7 @@
 SQLAlchemy 2.x async + aiosqlite 驱动。
 表名、列名与旧库完全一致，create_all 对已有库必须是无操作。
 """
+
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -19,8 +20,10 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 # 库文件路径；测试时可改指 /tmp 拷贝（支持 str 或 Path，引擎惰性创建，改后生效）
 DB_PATH = ROOT / "data" / "monitor.db"
 
+
 class Base(DeclarativeBase):
     """ORM 基类：app/models/ 下各表模型继承此类，导入即注册元数据。"""
+
 
 _engine: Optional[AsyncEngine] = None
 _session_factory: Optional[async_sessionmaker[AsyncSession]] = None
@@ -59,7 +62,7 @@ async def init_db():
     engine = get_engine()
     async with engine.begin() as conn:
         # 局部导入：models 依赖本模块的 Base，避免循环导入
-        from app import models  # noqa: F401 — 导入即注册 ORM 元数据
+        from app import models
 
         await conn.run_sync(models.Base.metadata.create_all)
 
@@ -70,19 +73,26 @@ async def init_db():
             await s.execute(text("ALTER TABLE tweets ADD COLUMN content_hash TEXT"))
         await s.execute(text("CREATE INDEX IF NOT EXISTS idx_tweets_hash ON tweets(content_hash)"))
         # 旧库迁移②：为已推送过的历史推文回填内容指纹，使"同内容不同推文"也能被去重
-        rows = (await s.execute(text(
-            "SELECT id, text FROM tweets WHERE notified=1 AND (content_hash IS NULL OR content_hash='')",
-        ))).fetchall()
+        rows = (
+            await s.execute(
+                text(
+                    "SELECT id, text FROM tweets WHERE notified=1 AND (content_hash IS NULL OR content_hash='')",
+                )
+            )
+        ).fetchall()
         for r in rows:
-            await s.execute(text("UPDATE tweets SET content_hash=:h WHERE id=:tid"),
-                            {"h": content_hash(r.text), "tid": r.id})
+            await s.execute(
+                text("UPDATE tweets SET content_hash=:h WHERE id=:tid"), {"h": content_hash(r.text), "tid": r.id}
+            )
         # 旧库迁移③：兼容曾按北京时间(+08:00)存储的旧库：迁回真实 UTC；只处理 +08:00 结尾的行，保证只执行一次
-        rows = (await s.execute(text("SELECT id, created_at FROM tweets WHERE created_at LIKE :pat"),
-                                {"pat": "%+08:00"})).fetchall()
+        rows = (
+            await s.execute(text("SELECT id, created_at FROM tweets WHERE created_at LIKE :pat"), {"pat": "%+08:00"})
+        ).fetchall()
         for r in rows:
             dt = datetime.fromisoformat(r.created_at).astimezone(timezone.utc)
-            await s.execute(text("UPDATE tweets SET created_at=:created WHERE id=:tid"),
-                            {"created": iso_utc(dt), "tid": r.id})
+            await s.execute(
+                text("UPDATE tweets SET created_at=:created WHERE id=:tid"), {"created": iso_utc(dt), "tid": r.id}
+            )
         # 日志表只保留 30 天，防止长期运行无限膨胀
         cutoff = hours_ago_iso(24 * 30)
         await s.execute(text("DELETE FROM polls WHERE ts < :cutoff"), {"cutoff": cutoff})

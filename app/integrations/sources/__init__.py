@@ -1,7 +1,9 @@
 """数据源管理：按配置顺序尝试，失败自动切换下一个（故障切换）。"""
+
 import time
 
 from app.repositories import healths as health_repo
+
 from . import demo as demo_mod
 from . import rsshub, twitterapi_io
 
@@ -14,16 +16,18 @@ def source_states(cfg, healths):
     for name, scfg in (("twitterapi_io", cfg.sources.twitterapi_io), ("rsshub", cfg.sources.rsshub)):
         mod = CHAIN.get(name)
         h = healths.get(name) or {}
-        states.append({
-            "name": name,
-            "enabled": scfg.enabled,
-            "configured": bool(mod and mod.is_configured(scfg)),
-            "known": name in healths,
-            "healthy": bool(h.get("healthy")),
-            "failures": h.get("failures", 0),
-            "last_ok": h.get("last_ok"),
-            "last_error": h.get("last_error"),
-        })
+        states.append(
+            {
+                "name": name,
+                "enabled": scfg.enabled,
+                "configured": bool(mod and mod.is_configured(scfg)),
+                "known": name in healths,
+                "healthy": bool(h.get("healthy")),
+                "failures": h.get("failures", 0),
+                "last_ok": h.get("last_ok"),
+                "last_error": h.get("last_error"),
+            }
+        )
     return states
 
 
@@ -50,14 +54,12 @@ async def fetch_with_failover(state, account, backfill=False):
         try:
             tweets = await mod.fetch(state.client, scfg, account, backfill=backfill)
             latency = int((time.monotonic() - t0) * 1000)
-            attempts.append({"source": name, "state": "ok", "error": None,
-                             "latency_ms": latency, "count": len(tweets)})
+            attempts.append({"source": name, "state": "ok", "error": None, "latency_ms": latency, "count": len(tweets)})
             await health_repo.set_health(name, True)
             return tweets, name, attempts
-        except Exception as e:  # noqa: BLE001 — 任何抓取失败都降级到下一个源
+        except Exception as e:
             latency = int((time.monotonic() - t0) * 1000)
             err = f"{type(e).__name__}: {e}"[:300]
-            attempts.append({"source": name, "state": "error", "error": err,
-                             "latency_ms": latency, "count": 0})
+            attempts.append({"source": name, "state": "error", "error": err, "latency_ms": latency, "count": 0})
             await health_repo.set_health(name, False, err)
     return [], None, attempts

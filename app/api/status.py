@@ -1,4 +1,5 @@
 """状态查询路由。"""
+
 from fastapi import APIRouter, Request
 
 from app.schemas import StatusOut, UnifiedResponse, ok

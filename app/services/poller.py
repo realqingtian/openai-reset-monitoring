@@ -1,14 +1,15 @@
 """轮询调度：定时拉取账号时间线 → 去重入库 → 匹配规则 → 命中则全渠道推送。"""
+
 import asyncio
 import logging
 import time
 
 from app.core.text import content_hash, normalize_text, texts_similar
 from app.core.timeutil import hours_ago_iso
-from app.repositories import polls as poll_repo
-from app.repositories import tweets as tweet_repo
 from app.integrations import notifiers
 from app.integrations.sources import fetch_with_failover
+from app.repositories import polls as poll_repo
+from app.repositories import tweets as tweet_repo
 from app.services.matcher import match_text
 
 log = logging.getLogger("poller")
@@ -22,8 +23,9 @@ async def run_poll(app):
             backfill = not await tweet_repo.account_has_tweets(account)
             tweets, used, attempts = await fetch_with_failover(app.state, account, backfill=backfill)
             for a in attempts:
-                await poll_repo.log_poll(account, a["source"], a["state"] == "ok",
-                                         a.get("count", 0), a.get("error"), a.get("latency_ms"))
+                await poll_repo.log_poll(
+                    account, a["source"], a["state"] == "ok", a.get("count", 0), a.get("error"), a.get("latency_ms")
+                )
             if used is None:
                 await poll_repo.log_poll(account, "(all)", False, 0, "所有已启用数据源均失败或未配置", None)
                 log.warning("账号 @%s 所有数据源失败或未配置", account)
@@ -60,8 +62,7 @@ async def run_poll(app):
                         results = await notifiers.dispatch_hit(cfg, app.state.client, tw, mres)
                         if results:
                             await tweet_repo.mark_notified(tw["id"])
-            log.info("账号 @%s 检查完成：来源=%s 新推文=%d 总抓取=%d",
-                     account, used, new_count, len(tweets))
+            log.info("账号 @%s 检查完成：来源=%s 新推文=%d 总抓取=%d", account, used, new_count, len(tweets))
 
 
 async def poll_loop(app):
@@ -71,7 +72,7 @@ async def poll_loop(app):
         t0 = time.monotonic()
         try:
             await run_poll(app)
-        except Exception as e:  # noqa: BLE001 — 保证轮询循环永不退出
+        except Exception as e:
             log.exception(f"轮询任务异常: {e}")
         sleep_s = max(30, interval - (time.monotonic() - t0))
         await asyncio.sleep(sleep_s)

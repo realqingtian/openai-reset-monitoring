@@ -1,5 +1,4 @@
 """系统路由：健康检查与测试通知。"""
-from typing import List
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
@@ -16,6 +15,6 @@ async def healthz():
     return JSONResponse({"ok": True})
 
 
-@router.post("/api/test-notify", response_model=UnifiedResponse[List[TestNotifyResult]])
+@router.post("/api/test-notify", response_model=UnifiedResponse[list[TestNotifyResult]])
 async def api_test_notify(request: Request):
     return ok(await notify_service.test_notify(request.app.state.cfg))

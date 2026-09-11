@@ -5,10 +5,11 @@
 - 数据源与通知渠道"填了凭证即启用，留空即停用"（enabled 由凭证推导，见各配置模型）；
 - 环境变量留空（空字符串）视为未设置，使用默认值，与旧版行为一致。
 """
+
 import json
 import logging
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -18,7 +19,7 @@ log = logging.getLogger("config")
 
 # 内置命中规则：依据 Tibo 的历史措辞设计（同一条规则内所有正则全部命中才触发）。
 # 如需自定义，设置环境变量 MONITOR_RULES_JSON（结构与此处一致）覆盖。
-DEFAULT_RULES: List[dict] = [
+DEFAULT_RULES: list[dict] = [
     {
         "name": "全球重置·英文",
         "enabled": True,
@@ -53,11 +54,11 @@ class RuleConfig(BaseModel):
 
     name: Optional[str] = None
     enabled: bool = True
-    all_patterns: List[str] = Field(default_factory=list)
+    all_patterns: list[str] = Field(default_factory=list)
 
 
 class MatcherConfig(BaseModel):
-    rules: List[RuleConfig] = Field(default_factory=lambda: [RuleConfig(**r) for r in DEFAULT_RULES])
+    rules: list[RuleConfig] = Field(default_factory=lambda: [RuleConfig(**r) for r in DEFAULT_RULES])
 
 
 class ServiceConfig(BaseModel):
@@ -222,7 +223,7 @@ class Settings(BaseSettings):
         return ".env" if (ROOT / ".env").exists() else "环境变量（未创建 .env）"
 
     @property
-    def accounts(self) -> List[str]:
+    def accounts(self) -> list[str]:
         parsed = [a.strip().lstrip("@") for a in self.monitor_accounts.split(",") if a.strip()]
         return parsed or ["thsottiaux"]
 

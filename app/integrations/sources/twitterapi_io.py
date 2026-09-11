@@ -1,6 +1,7 @@
 """数据源：twitterapi.io（第三方抓取 API，按量计费，无需 X 账号）。"""
+
 import asyncio
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from app.core.config import TwitterapiIoConfig
 from app.core.timeutil import parse_dt
@@ -16,7 +17,7 @@ async def fetch(client, scfg: TwitterapiIoConfig, account, backfill=False, **_):
     headers = {"X-API-Key": scfg.api_key}
     params = {"userName": account}
     max_pages = 5 if backfill else 1  # 首次运行回填历史，之后每次只拉最新一页（增量）
-    out: List[Dict[str, Any]] = []
+    out: list[dict[str, Any]] = []
     cursor: Optional[str] = None
     for page in range(max_pages):
         if cursor:
@@ -39,14 +40,16 @@ async def fetch(client, scfg: TwitterapiIoConfig, account, backfill=False, **_):
             text = (t.get("text") or "").strip()
             if not tid or not text:
                 continue
-            out.append({
-                "id": tid,
-                "account": account,
-                "text": text,
-                "url": t.get("url") or f"https://x.com/{account}/status/{tid}",
-                "created_at": parse_dt(t.get("createdAt")),
-                "source": "twitterapi_io",
-            })
+            out.append(
+                {
+                    "id": tid,
+                    "account": account,
+                    "text": text,
+                    "url": t.get("url") or f"https://x.com/{account}/status/{tid}",
+                    "created_at": parse_dt(t.get("createdAt")),
+                    "source": "twitterapi_io",
+                }
+            )
         if not data.get("has_next_page") or not data.get("next_cursor"):
             break
         cursor = data["next_cursor"]

@@ -1,4 +1,5 @@
 """翻译查询路由。"""
+
 from fastapi import APIRouter, Query, Request
 
 from app.schemas import TranslateOut, UnifiedResponse, ok

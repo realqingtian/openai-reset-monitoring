@@ -1,4 +1,5 @@
 """ORM 模型：数据源健康表（表名 / 列名与旧库 schema 完全一致）。"""
+
 from typing import Optional
 
 from sqlalchemy import Integer, Text

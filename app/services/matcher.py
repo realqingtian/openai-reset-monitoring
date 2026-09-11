@@ -1,14 +1,15 @@
 """关键词命中规则：一条规则内 all_patterns 全部命中（忽略大小写的正则）才算命中。"""
+
 import logging
 import re
-from typing import List, Optional
+from typing import Optional
 
 from app.core.config import RuleConfig
 
 log = logging.getLogger("matcher")
 
 
-def compile_rules(rule_cfgs: Optional[List[RuleConfig]]):
+def compile_rules(rule_cfgs: Optional[list[RuleConfig]]):
     rules = []
     for rc in rule_cfgs or []:
         if not rc.enabled:

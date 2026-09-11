@@ -1,5 +1,4 @@
 """轮询日志查询与手动触发路由。"""
-from typing import List
 
 from fastapi import APIRouter, Query, Request
 
@@ -10,7 +9,7 @@ from app.services import polls as polls_service
 router = APIRouter()
 
 
-@router.get("/api/polls", response_model=UnifiedResponse[List[PollOut]])
+@router.get("/api/polls", response_model=UnifiedResponse[list[PollOut]])
 async def api_polls(limit: int = Query(default=30, gt=0, le=200)):
     return ok(await polls_service.list_polls(limit))
 

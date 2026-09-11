@@ -8,6 +8,7 @@
 
 结果统一返回 dict：{ok, same, text, source, provider, error}。
 """
+
 import logging
 
 log = logging.getLogger("translate")
@@ -19,7 +20,7 @@ MYMEMORY_MAX = 450
 
 _HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
-                  "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+    "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
 }
 
 
@@ -51,7 +52,8 @@ async def _via_google(client, text, target):
     r = await client.get(
         "https://clients5.google.com/translate_a/t",
         params={"client": "dict-chrome-ex", "sl": "auto", "tl": target, "q": text},
-        headers=_HEADERS, timeout=10,
+        headers=_HEADERS,
+        timeout=10,
     )
     if r.status_code != 200:
         raise RuntimeError(f"HTTP {r.status_code}")
@@ -65,7 +67,8 @@ async def _via_mymemory(client, text, target):
     r = await client.get(
         "https://api.mymemory.translated.net/get",
         params={"q": text, "langpair": f"en|{target}"},
-        headers=_HEADERS, timeout=15,
+        headers=_HEADERS,
+        timeout=15,
     )
     if r.status_code != 200:
         raise RuntimeError(f"HTTP {r.status_code}")
@@ -91,16 +94,28 @@ async def translate_text(client, text, target="zh-CN"):
         translated, source = await _via_google(client, text, target)
         if source and source.split("-")[0] == target.split("-")[0]:
             return {"ok": True, "same": True, "source": source, "provider": "google"}
-        return {"ok": True, "same": False, "text": translated, "source": source,
-                "provider": "google", "truncated": truncated}
+        return {
+            "ok": True,
+            "same": False,
+            "text": translated,
+            "source": source,
+            "provider": "google",
+            "truncated": truncated,
+        }
     except Exception as e:
         log.warning("Google 翻译通道失败，尝试 MyMemory 兜底：%s", e)
 
     if len(text) <= MYMEMORY_MAX:
         try:
             translated, source = await _via_mymemory(client, text, target)
-            return {"ok": True, "same": False, "text": translated, "source": source,
-                    "provider": "mymemory", "truncated": truncated}
+            return {
+                "ok": True,
+                "same": False,
+                "text": translated,
+                "source": source,
+                "provider": "mymemory",
+                "truncated": truncated,
+            }
         except Exception as e:
             log.warning("MyMemory 兜底也失败：%s", e)
 

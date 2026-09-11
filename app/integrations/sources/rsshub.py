@@ -1,4 +1,5 @@
 """数据源：RSSHub（免费兜底；Twitter 路由需要自建 RSSHub 并配置 X 登录态 Cookie）。"""
+
 import hashlib
 import html as htmllib
 import re
@@ -38,8 +39,12 @@ async def fetch(client, scfg: RsshubConfig, account, backfill=False, **_):
     route = (scfg.route or "twitter/user").strip("/")
     # 实例启用了 ACCESS_KEY 鉴权时自动附带 key 参数
     params = {"key": scfg.access_key} if scfg.access_key else None
-    resp = await client.get(f"{base}/{route}/{account}", params=params, timeout=30,
-                            headers={"User-Agent": "Mozilla/5.0 (compatible; reset-monitor/1.0)"})
+    resp = await client.get(
+        f"{base}/{route}/{account}",
+        params=params,
+        timeout=30,
+        headers={"User-Agent": "Mozilla/5.0 (compatible; reset-monitor/1.0)"},
+    )
     resp.raise_for_status()
     root = _safe_parse(resp.content)
     out = []
@@ -49,20 +54,19 @@ async def fetch(client, scfg: RsshubConfig, account, backfill=False, **_):
         link = item.findtext("link") or item.findtext("guid") or ""
         pub = item.findtext("pubDate") or ""
         m = STATUS_RE.search(link or "")
-        if m:
-            tid = m.group(1)
-        else:
-            # 无 status id 时用链接的稳定哈希兜底：内建 hash() 带进程随机化，重启会变
-            tid = "rss-" + hashlib.sha256((link or title).encode("utf-8")).hexdigest()[:16]
+        # 无 status id 时用链接的稳定哈希兜底：内建 hash() 带进程随机化，重启会变
+        tid = m.group(1) if m else "rss-" + hashlib.sha256((link or title).encode("utf-8")).hexdigest()[:16]
         text = _strip_html(desc) or _strip_html(title)
         if not text:
             continue
-        out.append({
-            "id": tid,
-            "account": account,
-            "text": text,
-            "url": f"https://x.com/{account}/status/{tid}",
-            "created_at": parse_dt(pub),
-            "source": "rsshub",
-        })
+        out.append(
+            {
+                "id": tid,
+                "account": account,
+                "text": text,
+                "url": f"https://x.com/{account}/status/{tid}",
+                "created_at": parse_dt(pub),
+                "source": "rsshub",
+            }
+        )
     return out

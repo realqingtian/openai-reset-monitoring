@@ -1,4 +1,5 @@
 """Bark（iOS）推送。server_url 形如 https://api.day.app/你的Key。"""
+
 from urllib.parse import quote
 
 from app.core.config import BarkConfig
