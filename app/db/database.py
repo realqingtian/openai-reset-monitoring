@@ -6,7 +6,7 @@ SQLAlchemy 2.x async + aiosqlite 驱动。
 
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Optional, cast
 
 from sqlalchemy import event, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
@@ -32,7 +32,8 @@ _session_factory: Optional[async_sessionmaker[AsyncSession]] = None
 def get_engine() -> AsyncEngine:
     """惰性创建异步引擎（首次调用时读取当前 DB_PATH，支持 str 或 Path）。"""
     global _engine, _session_factory
-    if _engine is None:
+    engine = _engine
+    if engine is None:
         db_file = Path(DB_PATH)
         db_file.parent.mkdir(parents=True, exist_ok=True)
         engine = create_async_engine("sqlite+aiosqlite:///" + str(db_file))
@@ -47,14 +48,15 @@ def get_engine() -> AsyncEngine:
 
         _engine = engine
         _session_factory = async_sessionmaker(engine, expire_on_commit=False)
-    return _engine
+    return engine
 
 
 def session_factory() -> AsyncSession:
     """取一个新会话：repository 内用法 `async with session_factory() as s:`。"""
     get_engine()
-    assert _session_factory is not None
-    return _session_factory()
+    # get_engine() 已保证工厂完成初始化；cast 消除 IDE 对惰性全局变量的 None 误报
+    factory = cast(async_sessionmaker[AsyncSession], _session_factory)
+    return factory()
 
 
 async def init_db():
@@ -64,7 +66,8 @@ async def init_db():
         # 局部导入：models 依赖本模块的 Base，避免循环导入
         from app import models
 
-        await conn.run_sync(models.Base.metadata.create_all)
+        # run_sync 要求首参为 Connection 的回调，包一层适配 create_all 的签名（行为不变）
+        await conn.run_sync(lambda sync_conn: models.Base.metadata.create_all(sync_conn))
 
     async with session_factory() as s:
         # 旧库迁移①：补齐 content_hash 列与指纹索引（create_all 不会给已存在的表补索引）
