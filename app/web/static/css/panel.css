@@ -422,6 +422,8 @@ html.theming .nav-inner, html.theming .toast {
 }
 .pill-hit { color: var(--pill-hit-fg); border-color: var(--pill-hit-line); }
 .pill-term { color: var(--pill-term-fg); border-color: var(--pill-term-line); }
+/* 检查日志条数徽章：悬停有范围说明（title），用 help 光标暗示可悬停 */
+#logCount { cursor: help; }
 .src-chip {
   display: inline-flex; align-items: center; gap: 5px;
   font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em;
