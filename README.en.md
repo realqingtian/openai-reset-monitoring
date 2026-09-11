@@ -19,8 +19,8 @@ alert on the dashboard and pushes notifications to Feishu / DingTalk / WeCom / B
   both are configured; with only one filled, that one is used
 - 🎯 **Keyword matching**: regex rules designed around Tibo's real wording (Chinese & English); matched terms are
   highlighted on the dashboard
-- 🔔 **Five push channels**: Feishu / DingTalk / WeCom / Bark / Telegram; each tweet pushes at most once, duplicate
-  announcements never disturb twice
+- 🔔 **Five push channels**: Feishu / DingTalk / WeCom / Bark / Telegram; each hit pushes at most once per channel,
+  failed channels are retried automatically (succeeded ones are never re-sent), duplicate announcements never disturb twice
 - 📊 **Dashboard**: alert banner + 24-hour post feed on the left; live stats, sources, channels, hit history and
   check logs on the right; auto refresh every 60 seconds
 - 🕐 **Timestamps at a glance**: every post shows the real publish time (UTC+0), the converted time (UTC+8) and

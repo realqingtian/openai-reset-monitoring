@@ -105,9 +105,10 @@ def _hit_message(tweet, mres, texts):
     return {"title": title, "body": body, "url": tweet["url"]}
 
 
-async def _dispatch(cfg, client, msg, tweet_id):
+async def _dispatch(cfg, client, msg, tweet_id, only_channels=None):
     results = []
-    for name in ("feishu", "dingtalk", "wecom", "bark", "telegram"):
+    channels = only_channels or ("feishu", "dingtalk", "wecom", "bark", "telegram")
+    for name in channels:
         ncfg = getattr(cfg.notifiers, name)
         mod = MODULES.get(name)
         if mod is None or not ncfg.enabled or not mod.is_configured(ncfg):
@@ -123,9 +124,10 @@ async def _dispatch(cfg, client, msg, tweet_id):
     return results
 
 
-async def dispatch_hit(cfg, client, tweet, mres):
+async def dispatch_hit(cfg, client, tweet, mres, only_channels=None):
+    """推送命中公告。only_channels 供补推使用：只重发指定（上次失败的）渠道。"""
     texts = _texts(cfg)
-    return await _dispatch(cfg, client, _hit_message(tweet, mres, texts), tweet["id"])
+    return await _dispatch(cfg, client, _hit_message(tweet, mres, texts), tweet["id"], only_channels)
 
 
 async def send_test(cfg):
