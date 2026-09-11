@@ -17,13 +17,6 @@ function sourceChip(source) {
 
 const seenIds = new Set();
 
-/* 回复过滤：默认全显；勾选后客户端过滤 is_reply，选择存 localStorage 跨会话保留 */
-const HIDE_REPLIES_KEY = "crm-hide-replies";
-let hideReplies = (() => {
-  try { return localStorage.getItem(HIDE_REPLIES_KEY) === "1"; } catch (e) { return false; }
-})();
-let lastTweets = [];
-
 function tweetCard(tw, isNew, idx) {
   const pills = [sourceChip(tw.source)];
   if (tw.is_reply) pills.push(`<span class="pill">${esc(t("replyPill"))}</span>`);
@@ -58,28 +51,14 @@ function tweetCard(tw, isNew, idx) {
 }
 /* 返回渲染结果并登记已见 ID：只有新出现的推文才播放入场动画 */
 function renderTweetList(el, list) {
-  lastTweets = list;
-  const shown = hideReplies ? list.filter((tw) => !tw.is_reply) : list;
   const freshIdx = new Map();
-  shown.forEach((tw) => { if (!seenIds.has(tw.id)) freshIdx.set(tw.id, freshIdx.size); });
-  el.innerHTML = shown.length
-    ? shown.map((tw, i) => tweetCard(tw, freshIdx.has(tw.id), freshIdx.get(tw.id) || 0)).join("")
-    : list.length
-      ? `<div class="empty">${t("allRepliesHidden")}</div>`
-      : "";
-  shown.forEach((tw) => seenIds.add(tw.id));
+  list.forEach((tw) => { if (!seenIds.has(tw.id)) freshIdx.set(tw.id, freshIdx.size); });
+  el.innerHTML = list.length
+    ? list.map((tw, i) => tweetCard(tw, freshIdx.has(tw.id), freshIdx.get(tw.id) || 0)).join("")
+    : "";
+  list.forEach((tw) => seenIds.add(tw.id));
   /* 面板每 60 秒整表重绘，把已取到的译文恢复回去，避免翻译状态丢失；手动收起的保持收起 */
   restoreTranslations(el);
-}
-const hideRepliesCb = $("#hideReplies");
-if (hideRepliesCb) {
-  hideRepliesCb.checked = hideReplies;
-  hideRepliesCb.addEventListener("change", () => {
-    hideReplies = hideRepliesCb.checked;
-    try { localStorage.setItem(HIDE_REPLIES_KEY, hideReplies ? "1" : "0"); } catch (e) {}
-    /* 重绘时 seenIds 已含全部 ID，不会重播入场动画 */
-    renderTweetList($("#tweetList"), lastTweets);
-  });
 }
 function renderHitList(list) {
   const el = $("#hitList");
