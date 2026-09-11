@@ -8,6 +8,7 @@
 
 import json
 import logging
+from functools import cached_property
 from pathlib import Path
 from typing import Optional
 
@@ -262,8 +263,9 @@ class Settings(BaseSettings):
             telegram=TelegramConfig(bot_token=self.tg_bot_token, chat_id=self.tg_chat_id),
         )
 
-    @property
+    @cached_property
     def matcher(self) -> MatcherConfig:
+        """命中规则：含 JSON 解析与校验，结果按实例缓存（避免每请求重复解析）。"""
         raw = self.monitor_rules_json
         if not raw:
             return MatcherConfig()
