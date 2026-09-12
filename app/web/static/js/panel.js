@@ -83,7 +83,7 @@ function renderPolls() {
       </div>`).join("")
     : `<div class="hempty">${t("logEmpty")}</div>`;
   $("#pgInfo").textContent = `${pollPage} / ${pages}`;
-  $("#logCount").textContent = `${total} 条`;
+  $("#logCount").textContent = t("logCount", { n: total });
   $("#pgPrev").disabled = pollPage <= 1;
   $("#pgNext").disabled = pollPage >= pages;
 }
