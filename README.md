@@ -148,7 +148,8 @@ https://x.com/thsottiaux/status/…
 - **英文规则**：`reset` ∧ `usage/rate limits` ∧ (`paid`/`everyone`/`all`/`codex`…) —— 覆盖
   *"Usage limits have been reset for all paid…"*、*"I have reset everyone's Codex usage limits"* 等措辞
 - **中文规则**：`重置` ∧ (`用量`/`限额`/`额度`/`付费`/`订阅`/`全球`) —— 兜底
-- **英文宽松规则**：`reset` ∧ `usage/rate limits` —— 兜底 *"I will reset usage limits this evening"* 这类预告
+- **英文宽松规则**：`reset` ∧ (`usage/rate limits` ∨ `a reset`) —— 兜底 *"I will reset usage limits this evening"* 这类预告，
+  以及 *"A reset and a quick update…"* / *"a reset is also landing by midnight today"* 这类不提限额的公告（冠词限定避免 factory reset 等误报）
 - **订阅暂停·英文**：`pause/suspend/halt/stop/close/on hold/no longer` ∧ (`subscription`/`sign-up`) ——
   覆盖 *"we're pausing subscriptions to our $200 Pro plan"* 这类停售公告
 - **订阅恢复·英文**：`reopen/resume/unpause/back/again` ∧ (`subscription`/`sign-up`/`pro`) ——

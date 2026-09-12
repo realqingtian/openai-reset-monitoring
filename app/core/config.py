@@ -39,12 +39,14 @@ DEFAULT_RULES: list[dict] = [
         ],
     },
     {
-        # 宽松兜底：如 "I will reset usage limits this evening"（预告式，无受众词）
+        # 宽松兜底：如 "I will reset usage limits this evening"（预告式，无受众词）；
+        # 也覆盖只说 "a reset" 不提限额的公告式措辞（"a reset is also landing by midnight today"）。
+        # \ba\s+reset 要求冠词紧贴，避免 "factory reset"/"via reset" 这类非公告用法误报。
         "name": "全球重置·英文·宽",
         "enabled": True,
         "all_patterns": [
             r"reset(?:ted|ting|s)?\b",
-            r"(?:usage|rate)[ _-]?limits?",
+            r"(?:usage|rate)[ _-]?limits?|\ba\s+reset\b",
         ],
     },
     {
