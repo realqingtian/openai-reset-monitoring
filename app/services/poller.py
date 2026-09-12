@@ -6,7 +6,6 @@ import json
 import logging
 import time
 
-from app.core.text import content_hash, normalize_text, texts_similar
 from app.core.timeutil import hours_ago_iso
 from app.integrations import notifiers
 from app.integrations.sources import fetch_with_failover
@@ -14,6 +13,7 @@ from app.repositories import notify_retry
 from app.repositories import polls as poll_repo
 from app.repositories import tweets as tweet_repo
 from app.services.matcher import match_text
+from app.services.notify import dispatch_hit_dedup
 
 log = logging.getLogger("poller")
 
@@ -71,26 +71,7 @@ async def run_poll(app):
                 await tweet_repo.mark_hit(tw["id"], mres["rule"], mres["terms"])
                 # 只对时间窗口内的新推文推送告警，避免首次回填历史时误扰
                 if tw["created_at"] >= window_start:
-                    chash = content_hash(tw["text"])
-                    dup_reason = None
-                    if await tweet_repo.hash_already_notified(chash, tw["id"]):
-                        # 内容指纹一致：同一公告被重复发布
-                        dup_reason = "内容指纹一致"
-                    else:
-                        # 相似度去重：24 小时内已推送过高度相似的公告（转发/修正版）
-                        norm = normalize_text(tw["text"])
-                        for rid, rtext in await tweet_repo.notified_texts_since(hours_ago_iso(24)):
-                            if texts_similar(norm, normalize_text(rtext)):
-                                dup_reason = f"与已推送的 {rid} 高度相似"
-                                break
-                    if dup_reason:
-                        log.info("跳过重复内容推送：id=%s（%s）", tw["id"], dup_reason)
-                        await tweet_repo.mark_notified(tw["id"])
-                    else:
-                        results = await notifiers.dispatch_hit(cfg, app.state.client, tw, mres)
-                        # 尝试过的渠道全部成功才标记已推送；部分失败留给下轮补推扫描
-                        if results and all(r["ok"] for r in results):
-                            await tweet_repo.mark_notified(tw["id"])
+                    await dispatch_hit_dedup(cfg, app.state.client, tw, mres)
             log.info("账号 @%s 检查完成：来源=%s 新推文=%d 总抓取=%d", account, used, new_count, len(tweets))
 
 

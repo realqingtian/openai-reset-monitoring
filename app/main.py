@@ -21,7 +21,7 @@ from app.api import api_router
 from app.core import config as config_mod
 from app.core import errors as errors_mod
 from app.db import database
-from app.services import matcher, poller
+from app.services import matcher, poller, rescan
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 ROOT = Path(__file__).resolve().parent.parent
@@ -42,11 +42,15 @@ async def lifespan(application: FastAPI):
     application.state.rules = matcher.compile_rules(CFG.matcher.rules)
     application.state.client = httpx.AsyncClient(follow_redirects=True)
     application.state.poll_lock = asyncio.Lock()
+    # 启动回扫先于轮询创建任务：经 poll_lock 串行，用当前规则补齐历史命中后再开轮
+    rescan_task = asyncio.create_task(rescan.rescan_once(application))
     task = asyncio.create_task(poller.poll_loop(application))
     yield
-    task.cancel()
-    with suppress(asyncio.CancelledError):
-        await task
+    for t in (rescan_task, task):
+        t.cancel()
+    for t in (rescan_task, task):
+        with suppress(asyncio.CancelledError):
+            await t
     await application.state.client.aclose()
 
 

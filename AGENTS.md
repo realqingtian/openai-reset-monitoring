@@ -92,6 +92,7 @@ app/
 - 回复监控当前临时关闭（`.env` 显式 `MONITOR_INCLUDE_REPLIES=false`；代码默认 true，注释掉无效）：自建 RSSHub 的 `includeReplies=true` 路由因 X 反爬拦截 `UserTweetsAndReplies` 恒返回空 feed（上游 DIYgod/RSSHub#22964，修复 PR #22967 合并后拉新镜像、改回 true 并 revert 面板「隐藏回复」过滤的移除提交）。恢复后注意：twitterapi.io 增量翻页随之 1→2 页（防回复风暴刷过单页窗口）；RSSHub 无法判定回复（`is_reply` 存 NULL 无徽章）；回复命中同样推送。
 - 检查日志面板固定取最近 200 条（`/api/polls?limit=200`，API 上限 200），数据库保留 30 天；徽章有悬停说明。
 - 推送按渠道粒度判定送达：全部尝试渠道成功才标记已推送；失败渠道由每轮轮询开头的补推扫描只向失败渠道重发；命中时未配置渠道的推文不补推（面板历史仍在）。
+- 启动回扫（`services/rescan.py`）：每次启动用当前规则重扫 30 天内未命中推文并补 `mark_hit`（面板历史自愈）；只补推 24 小时内发布且从未有过渠道尝试的错过公告，已推送/已尝试的不重发，24 小时外只补记录不推送。
 - repositories 逐函数一 session、逐条事务，WAL 下够用；批量优化需整体权衡再做。
 - API 文档与测试通知仅在 `MONITOR_ENV=debug` 开放。
 
