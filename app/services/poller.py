@@ -1,5 +1,6 @@
 """轮询调度：定时拉取账号时间线 → 去重入库 → 匹配规则 → 命中则全渠道推送；
-渠道失败的命中由每轮开头的补推扫描按渠道重发（成功渠道不重发）。"""
+渠道失败的命中由每轮开头的补推扫描按渠道重发（成功渠道不重发）。
+每轮结束后交由 source_watch 评估数据源健康（连续失败自告警）。"""
 
 import asyncio
 import json
@@ -12,6 +13,7 @@ from app.integrations.sources import fetch_with_failover
 from app.repositories import notify_retry
 from app.repositories import polls as poll_repo
 from app.repositories import tweets as tweet_repo
+from app.services import source_watch
 from app.services.matcher import match_text
 from app.services.notify import dispatch_hit_dedup
 
@@ -42,9 +44,16 @@ async def _retry_failed_pushes(app):
             await tweet_repo.mark_notified(tw["id"])
 
 
-async def run_poll(app):
+async def run_poll(app) -> dict:
+    """执行一轮全部账号的检查，返回健康摘要供 source_watch 判定。
+
+    ok=True 要求所有「实际发起了数据源请求」的账号都成功；没配置任何源的账号
+    不参与判定（空跑不是故障）。手动 /api/poll-now 也走这里，但其返回值不进入
+    自监控计数——只有 poll_loop 里的定时轮询才调用 observe。
+    """
     cfg = app.state.cfg
     rules = app.state.rules
+    summary: dict = {"ok": True, "accounts": list(cfg.accounts), "failed_accounts": [], "errors": []}
     async with app.state.poll_lock:
         await _retry_failed_pushes(app)
         for account in cfg.accounts:
@@ -56,6 +65,10 @@ async def run_poll(app):
                 )
             if used is None:
                 await poll_repo.log_poll(account, "(all)", False, 0, "所有已启用数据源均失败或未配置", None)
+                # attempts 非空说明源已配置且确实尝试过——真失败；为空说明压根没配置，不算
+                if attempts:
+                    summary["failed_accounts"].append(account)
+                    summary["errors"].extend(a["error"] for a in attempts if a.get("error"))
                 log.warning("账号 @%s 所有数据源失败或未配置", account)
                 continue
             window_start = hours_ago_iso(cfg.lookback_hours)
@@ -73,6 +86,10 @@ async def run_poll(app):
                 if tw["created_at"] >= window_start:
                     await dispatch_hit_dedup(cfg, app.state.client, tw, mres)
             log.info("账号 @%s 检查完成：来源=%s 新推文=%d 总抓取=%d", account, used, new_count, len(tweets))
+    if summary["failed_accounts"]:
+        summary["ok"] = False
+        summary["errors"] = summary["errors"][:5]
+    return summary
 
 
 async def poll_loop(app):
@@ -80,9 +97,21 @@ async def poll_loop(app):
     interval = max(1, int(cfg.poll_interval_minutes)) * 60
     while True:
         t0 = time.monotonic()
+        result: dict = {"ok": True, "accounts": list(cfg.accounts)}
         try:
-            await run_poll(app)
+            result = await run_poll(app)
         except Exception as e:
+            # 轮询任务本身抛异常（如数据库故障）同样视为一轮失败，交给自监控计数
             log.exception(f"轮询任务异常: {e}")
+            result = {
+                "ok": False,
+                "accounts": list(cfg.accounts),
+                "failed_accounts": list(cfg.accounts),
+                "errors": [f"{type(e).__name__}: {e}"],
+            }
+        try:
+            await source_watch.observe(cfg, app.state.client, result)
+        except Exception:
+            log.exception("数据源自监控评估异常")
         sleep_s = max(30, interval - (time.monotonic() - t0))
         await asyncio.sleep(sleep_s)

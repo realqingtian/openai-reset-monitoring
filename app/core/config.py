@@ -187,6 +187,11 @@ class Settings(BaseSettings):
     monitor_lookback_hours: int = 24
     monitor_notify_lang: str = "zh"
     monitor_rules_json: Optional[str] = None
+    monitor_access_token: str = ""
+    monitor_public_url: str = ""
+    # 数据源自告警：连续 N 轮检查失败后经通知渠道告警（0=关闭）；告警未恢复时每隔多少分钟重发（0=不重发）
+    monitor_source_alert_threshold: int = 3
+    monitor_source_alert_repeat_minutes: int = 60
     demo: bool = False
 
     # -- 数据源凭证（填了即启用） --
@@ -228,6 +233,12 @@ class Settings(BaseSettings):
     def _positive(cls, v):
         return max(1, int(v))
 
+    @field_validator("monitor_source_alert_threshold", "monitor_source_alert_repeat_minutes", mode="after")
+    @classmethod
+    def _non_negative(cls, v):
+        # 0 有语义（关闭告警 / 不重发），不能被 _positive 的下限 1 吞掉
+        return max(0, int(v))
+
     # ---- 派生视图：与旧版 load_config() 返回的 dict 键一一对应 ----
 
     @property
@@ -262,6 +273,14 @@ class Settings(BaseSettings):
     @property
     def lookback_hours(self) -> int:
         return self.monitor_lookback_hours
+
+    @property
+    def source_alert_threshold(self) -> int:
+        return self.monitor_source_alert_threshold
+
+    @property
+    def source_alert_repeat_minutes(self) -> int:
+        return self.monitor_source_alert_repeat_minutes
 
     @property
     def notify_lang(self) -> str:

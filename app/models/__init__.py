@@ -1,4 +1,4 @@
-"""ORM 模型：五张表，一表一模块；表名、列名、类型与旧库一致。
+"""ORM 模型：一表一模块；既有五张表与旧库一致，app_state 为新增表（create_all 自动补建）。
 
 统一从这里 re-export：业务侧始终 `from app.models import Xxx`，
 不感知具体文件；Base 一并暴露供 init_db 注册元数据。
@@ -10,10 +10,11 @@ nullable=True 语义一致，业务写入方自行保证必填列有值。唯一
 """
 
 from app.db.database import Base
+from app.models.app_state import AppState
 from app.models.notify_log import NotifyLog
 from app.models.poll import Poll
 from app.models.source_health import SourceHealth
 from app.models.translation import Translation
 from app.models.tweet import Tweet
 
-__all__ = ["Base", "NotifyLog", "Poll", "SourceHealth", "Translation", "Tweet"]
+__all__ = ["AppState", "Base", "NotifyLog", "Poll", "SourceHealth", "Translation", "Tweet"]
