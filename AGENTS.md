@@ -1,18 +1,18 @@
 # AGENTS.md
 
-供 AI 编码助手（ZCode / Codex / Claude 等）在本仓库工作遵循。动手前通读全文；标注「禁止」的条目曾被用户明确纠正过，不得违反。
+供 AI 编码助手（ZCode / Codex / Claude 等）在本仓库工作遵循。动手前通读全文；标注「禁止」的条目曾被用户明确纠正过，不得违反。与 `.agents/skills/` 内的通用设计类 Skill 冲突时（如引入 Tailwind、替换字体、新增依赖、绕过 i18n / React Bits / check.sh），一律以本文件为准。
 
 ## 项目概览
 
 监控 X 账号（@thsottiaux）的 Codex 用量重置公告：定时轮询时间线 → 正则规则命中 → 多渠道推送（飞书 / 钉钉 / 企微 / Bark / Telegram）+ Web 面板展示。
-技术栈：FastAPI + SQLAlchemy(async) + SQLite(aiosqlite) + httpx；前端为无框架 ES 模块。
+技术栈：FastAPI + SQLAlchemy(async) + SQLite(aiosqlite) + httpx；前端为 React 19 + Vite + TS 独立工程（bun 管理依赖）。
 
 ## 常用命令
 
 | 用途 | 命令 |
 |---|---|
 | 质量检查（任何交付前必须三步全绿） | `bash check.sh` |
-| 前端开发 | 在 `frontend/` 下 `bun install` 后 `bun dev`（5173，/api 代理到 8080 后端） |
+| 前端开发 | 在 `frontend/` 下 `bun install` 后 `bun dev`（5173，/api 代理到 8730 后端） |
 | 前端构建 / lint | 在 `frontend/` 下 `bun run build` / `bun run lint` |
 | lint / 格式自动修复 | `bash check.sh --fix` |
 | 本地演示启动（无凭证体验） | `DEMO=1 MONITOR_HOST=127.0.0.1 MONITOR_PORT=18xxx .venv/bin/python -m app.main` |
@@ -32,7 +32,7 @@ app/
 ├── schemas/      # Pydantic 出参模型
 ├── services/     # 用例编排
 
-frontend/         # React 独立前端工程（Vite + React 18 + TS，bun 管理依赖）
+frontend/         # React 独立前端工程（Vite + React 19 + TS，bun 管理依赖）
                   # bun run build 产物 dist/ 由 FastAPI 同源托管，存在即优先生效
 ```
 
