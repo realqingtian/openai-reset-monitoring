@@ -91,6 +91,10 @@ app/
 
 - 回复监控当前临时关闭（`.env` 显式 `MONITOR_INCLUDE_REPLIES=false`；代码默认 true，注释掉无效）：自建 RSSHub 的 `includeReplies=true` 路由因 X 反爬拦截 `UserTweetsAndReplies` 恒返回空 feed（上游 DIYgod/RSSHub#22964，修复 PR #22967 合并后拉新镜像、改回 true 并 revert 面板「隐藏回复」过滤的移除提交）。恢复后注意：twitterapi.io 增量翻页随之 1→2 页（防回复风暴刷过单页窗口）；RSSHub 无法判定回复（`is_reply` 存 NULL 无徽章）；回复命中同样推送。
 - 检查日志面板固定取最近 200 条（`/api/polls?limit=200`，API 上限 200），数据库保留 30 天；徽章有悬停说明。
+- 数据源自告警（`services/source_watch.py`）：连续 `MONITOR_SOURCE_ALERT_THRESHOLD`（默认 3）轮检查全部失败经渠道告警，恢复后发恢复通知；重发间隔 `MONITOR_SOURCE_ALERT_REPEAT_MINUTES`（默认 60，0 不重发）。状态存 `app_state` 表（重启不重复打扰、不漏发恢复）；未配置任何源不算失败；DEMO 模式整体跳过。
+- 推文保留分级：未命中 30 天滚动清理、命中 180 天（`MONITOR_TWEET/HIT_RETENTION_DAYS`），供「重置节奏」统计卡（`/api/stats`）采样；此前推文从不清理，旧库首次升级会补执行清理。
+- 访问令牌（`MONITOR_ACCESS_TOKEN`，留空即完全关闭）：只保护写接口（`POST /api/poll-now`、`POST /api/test-notify`），读接口与面板保持公开；前端令牌存 localStorage `crm-token`，401 时弹窗输入并自动重试一次。
+- DEMO 模式隔离是双重的：独立库 `data/demo.db` + 跳过全部真实渠道推送（`notifiers._dispatch` 统一拦截），演示命中保持未推送状态。
 - 推送按渠道粒度判定送达：全部尝试渠道成功才标记已推送；失败渠道由每轮轮询开头的补推扫描只向失败渠道重发；命中时未配置渠道的推文不补推（面板历史仍在）。
 - 启动回扫（`services/rescan.py`）：每次启动用当前规则重扫 30 天内未命中推文并补 `mark_hit`（面板历史自愈）；只补推 24 小时内发布且从未有过渠道尝试的错过公告，已推送/已尝试的不重发，24 小时外只补记录不推送。
 - repositories 逐函数一 session、逐条事务，WAL 下够用；批量优化需整体权衡再做。
