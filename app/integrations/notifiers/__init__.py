@@ -126,6 +126,11 @@ def _hit_message(tweet, mres, texts):
 
 
 async def _dispatch(cfg, client, msg, tweet_id, only_channels=None):
+    # DEMO 模式只隔离数据库，这里补上通知隔离：演示命中绝不能进用户真实群聊。
+    # 返回空列表使命中保持未推送状态，面板展示符合事实。
+    if getattr(cfg, "demo", False):
+        log.info("DEMO 模式：跳过真实渠道推送（%s）", msg["title"])
+        return []
     results = []
     channels = only_channels or ("feishu", "dingtalk", "wecom", "bark", "telegram")
     for name in channels:
