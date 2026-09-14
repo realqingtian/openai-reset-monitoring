@@ -64,7 +64,7 @@ bash start-backend.sh
 ```bash
 # 1. 准备配置
 cp .env.example .env
-# 编辑 .env：填数据源凭证、通知渠道；面板对外端口用 FRONTEND_PORT（默认 8080）
+# 编辑 .env：填数据源凭证、通知渠道；面板对外端口用 FRONTEND_PORT（默认 80）
 
 # 2. 构建并后台启动
 docker compose up -d --build
@@ -74,7 +74,7 @@ docker compose logs -f
 docker compose down            # 停止（数据保留在 ./data）
 ```
 
-完成后打开 `http://宿主机IP:8080`（改端口用 `.env` 里的 `FRONTEND_PORT`）。
+完成后打开 `http://宿主机IP`（对外端口默认 80，改端口用 `.env` 里的 `FRONTEND_PORT`）。
 
 说明：
 

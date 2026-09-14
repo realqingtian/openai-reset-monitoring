@@ -32,7 +32,7 @@ bun run preview    # 本地预览构建产物
 
 `Caddyfile` + `Dockerfile` 构成前端镜像：bun 构建面板 → Caddy（alpine）托管静态文件并反代 API。
 
-- 由仓库根目录 `docker-compose.yml` 编排（服务名 `frontend`），对外端口 `FRONTEND_PORT`（默认 8080）；
+- 由仓库根目录 `docker-compose.yml` 编排（服务名 `frontend`），对外端口 `FRONTEND_PORT`（默认 80）；
 - Caddy 同源反代 `/api`、`/healthz` 到 `backend` 容器，浏览器只面对一个入口，无 CORS；
 - 带指纹的构建产物带一年 immutable 缓存，`index.html` 不缓存，发版刷新即生效；
 - 只改前端时单独重建：`docker compose up -d --build frontend`。

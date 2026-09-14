@@ -78,7 +78,7 @@ browser ──► frontend container (Caddy: serves the React panel's static fil
 ```bash
 # 1. prepare configuration
 cp .env.example .env
-# edit .env: fill in data source credentials, push channels; the public port is FRONTEND_PORT (default 8080)
+# edit .env: fill in data source credentials, push channels; the public port is FRONTEND_PORT (default 80)
 
 # 2. build and start in the background
 docker compose up -d --build
@@ -88,7 +88,7 @@ docker compose logs -f
 docker compose down            # stop (data kept in ./data)
 ```
 
-Then open `http://<host>:8080` (change the port via `FRONTEND_PORT` in `.env`).
+Then open `http://<host>` (the public port defaults to 80; change it via `FRONTEND_PORT` in `.env`).
 
 Notes:
 
