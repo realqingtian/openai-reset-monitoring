@@ -31,7 +31,7 @@
 ```bash
 # 1.（可选）先跑 DEMO 模式看效果，无需任何配置
 DEMO=1 bash start-backend.sh        # Windows：start-backend.bat
-# 打开 http://127.0.0.1:8730
+# 打开 http://127.0.0.1:8080
 
 # 2. 正式启用：创建 .env 并填入凭证（脚本首次运行也会自动创建）
 cp .env.example .env
@@ -40,7 +40,7 @@ bash start-backend.sh
 ```
 
 启动后访问 `http://127.0.0.1:端口`（端口看 `.env` 里的 `MONITOR_PORT`，
-示例配置是 `8080`，什么都不配时内置默认 `8730`）。
+什么都不配时内置默认 `8080`）。
 
 说明：
 
@@ -170,7 +170,7 @@ cd frontend && bun run build         # 前端：类型检查 + 构建
 | `MONITOR_ENV` | `production` | 设为 `debug` 时面板才显示"发送测试通知"按钮，并开放 `/docs`、`/redoc`、`/openapi.json` API 文档 |
 | `DEMO` | 空 | 设为 `1` 使用内置演示数据 |
 | `MONITOR_SITE_NAME` | `Codex Reset Monitor` | 面板名称（浏览器标签页标题 + 导航栏名称） |
-| `MONITOR_HOST` / `MONITOR_PORT` | `127.0.0.1` / `8730` | 面板服务监听地址（示例配置为 `0.0.0.0:8080`） |
+| `MONITOR_HOST` / `MONITOR_PORT` | `127.0.0.1` / `8080` | 面板服务监听地址（示例配置为 `0.0.0.0:8080`） |
 | `MONITOR_ACCOUNTS` | `thsottiaux` | 监控的 X 账号，逗号分隔，不带 @ |
 | `MONITOR_POLL_INTERVAL` | `5` | 轮询间隔（分钟） |
 | `MONITOR_LOOKBACK_HOURS` | `24` | 面板展示与告警窗口（小时） |

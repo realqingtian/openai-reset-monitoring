@@ -43,7 +43,7 @@ alert on the dashboard and pushes notifications to Feishu / DingTalk / WeCom / B
 ```bash
 # 1. (optional) try DEMO mode first — no configuration needed
 DEMO=1 bash start-backend.sh        # Windows: start-backend.bat
-# open http://127.0.0.1:8730
+# open http://127.0.0.1:8080
 
 # 2. production: create .env and fill in credentials (the script also creates it on first run)
 cp .env.example .env
@@ -52,7 +52,7 @@ bash start-backend.sh
 ```
 
 Once started, visit `http://127.0.0.1:<port>`. The port follows `MONITOR_PORT` in `.env`
-(the sample config uses `8080`; with no configuration the built-in default is `8730`).
+(with no configuration the built-in default is `8080`).
 
 Notes:
 
@@ -192,7 +192,7 @@ How to obtain every item is documented in the comments of `.env.example`.
 | `MONITOR_ENV` | `production` | with `debug` the dashboard shows the "Send test notification" button and serves `/docs`, `/redoc`, `/openapi.json` API docs |
 | `DEMO` | empty | set to `1` to run on built-in demo data |
 | `MONITOR_SITE_NAME` | `Codex Reset Monitor` | dashboard name (browser tab title + navbar) |
-| `MONITOR_HOST` / `MONITOR_PORT` | `127.0.0.1` / `8730` | dashboard listen address (the sample config uses `0.0.0.0:8080`) |
+| `MONITOR_HOST` / `MONITOR_PORT` | `127.0.0.1` / `8080` | dashboard listen address (the sample config uses `0.0.0.0:8080`) |
 | `MONITOR_ACCOUNTS` | `thsottiaux` | X accounts to watch, comma separated, without @ |
 | `MONITOR_POLL_INTERVAL` | `5` | polling interval (minutes) |
 | `MONITOR_LOOKBACK_HOURS` | `24` | dashboard & alert window (hours) |

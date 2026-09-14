@@ -28,15 +28,15 @@ WORKDIR /app
 COPY --from=builder /build/.venv /app/.venv
 COPY app/ ./app/
 
-# 容器内必须监听 0.0.0.0 才能被映射访问；容器端口固定 8730，
-# 由 compose 里的 frontend 容器（Caddy）反代 /api 到本镜像的 8730。
+# 容器内必须监听 0.0.0.0 才能被映射访问；容器端口固定 8080，
+# 由 compose 里的 frontend 容器（Caddy）反代 /api 到本镜像的 8080。
 # PYTHONUNBUFFERED 让日志实时输出到 docker logs。
 ENV PATH="/app/.venv/bin:$PATH" \
     MONITOR_HOST=0.0.0.0 \
-    MONITOR_PORT=8730 \
+    MONITOR_PORT=8080 \
     PYTHONUNBUFFERED=1
 
-EXPOSE 8730
+EXPOSE 8080
 
 # 非 root 运行；UID 固定 1000，与宿主机 ./data 卷的属主配合见文件头说明
 RUN useradd --create-home --uid 1000 appuser \
