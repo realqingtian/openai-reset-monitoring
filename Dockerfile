@@ -1,5 +1,6 @@
-# Codex 重置监控 · 生产镜像
-# 构建：docker build -t codex-reset-monitor .
+# Codex 重置监控 · 后端镜像（纯 API 服务）
+# 构建：docker build -t codex-reset-monitor-backend .
+# 面板前端在 frontend/（独立工程），由 compose 里的 frontend 容器（Caddy）托管并反代 /api 到本镜像。
 # 国内网络拉不到 Docker Hub 时，FROM 走 DaoCloud 镜像前缀；
 # 若已给 Docker 配置 registry-mirrors 或代理，可改回官方源 FROM python:3.12-slim
 #
@@ -28,7 +29,7 @@ COPY --from=builder /build/.venv /app/.venv
 COPY app/ ./app/
 
 # 容器内必须监听 0.0.0.0 才能被映射访问；容器端口固定 8730，
-# 宿主机端口由 docker-compose 的 ports 映射决定。
+# 由 compose 里的 frontend 容器（Caddy）反代 /api 到本镜像的 8730。
 # PYTHONUNBUFFERED 让日志实时输出到 docker logs。
 ENV PATH="/app/.venv/bin:$PATH" \
     MONITOR_HOST=0.0.0.0 \

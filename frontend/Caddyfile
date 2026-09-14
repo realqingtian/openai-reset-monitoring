@@ -1,0 +1,28 @@
+# 面板静态托管 + API 反代（同源，无 CORS）。
+# 浏览器只面对 Caddy 这一个入口：静态文件本地服务，/api、/healthz 反代到 backend 容器（容器内 8730）。
+# 用 handle 分组保证互斥：API 请求走反代，其余走 SPA 静态托管（try_files 在 reverse_proxy
+# 之前执行会吞掉 /api 路径，平铺写法会 404 回退成 index.html）。
+:80 {
+	encode zstd gzip
+
+	# 带指纹的构建产物可永久缓存；index.html 不缓存，保证发版后刷新即生效
+	@immutable path /assets/index-*
+	header @immutable Cache-Control "public, max-age=31536000, immutable"
+	header / Cache-Control "no-cache"
+	header /index.html Cache-Control "no-cache"
+
+	# API 与健康检查：反代到后端容器（compose 网络内的服务名）
+	handle /api/* {
+		reverse_proxy backend:8730
+	}
+	handle /healthz {
+		reverse_proxy backend:8730
+	}
+
+	# 其余路径：SPA 静态托管，未命中文件回退 index.html
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

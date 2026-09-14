@@ -10,3 +10,8 @@ __pycache__
 .git
 *.md
 openai-com-logo-assets
+# 前端工程：依赖与本地构建产物不进构建上下文（镜像内由 bun 阶段重新构建）
+frontend/node_modules
+frontend/dist
+# 前端独立工程：由 frontend/ 自己的 Dockerfile（Caddy）构建与托管，后端镜像不包含
+frontend
