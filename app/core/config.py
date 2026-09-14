@@ -259,6 +259,10 @@ class Settings(BaseSettings):
         return self.env_mode == "debug"
 
     @property
+    def access_protected(self) -> bool:
+        return bool(self.monitor_access_token.strip())
+
+    @property
     def docs_enabled(self) -> bool:
         return self.debug
 

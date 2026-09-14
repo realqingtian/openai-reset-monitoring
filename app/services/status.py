@@ -20,6 +20,7 @@ async def assemble_status(cfg, rules: list[RuleConfig]) -> StatusOut:
     return StatusOut(
         demo=cfg.demo,
         debug=cfg.debug,
+        access_protected=cfg.access_protected,
         env_mode=cfg.env_mode,
         site_name=cfg.site_name,
         config_file=cfg.config_file,

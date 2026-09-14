@@ -7,6 +7,19 @@ import { applyI18n, lang, langMode, onLangChange, t } from "./i18n.js";
 import { applyTheme, mqLight, syncFavicon, themeMode } from "./theme.js";
 import { renderHitList, renderTweetList } from "./feed.js";
 import { renderHero, renderPolls, renderRhythm, renderSources, setAllPolls } from "./panel.js";
+import { requireUnlock, setProtected } from "./auth.js";
+
+/* 写接口 401 时弹解锁窗，保存令牌后自动重试一次；取消则原样抛出（.auth 标记仍在） */
+async function withAuthRetry(fn) {
+  try {
+    return await fn();
+  } catch (e) {
+    if (!e.auth) throw e;
+    const unlocked = await requireUnlock();
+    if (!unlocked) throw e;
+    return await fn();
+  }
+}
 
 async function refresh() {
   try {
@@ -16,6 +29,7 @@ async function refresh() {
     renderHero(st);
     renderSources(st);
     renderRhythm(rhythm);
+    setProtected(st.access_protected);
 
     if (tweets.length) renderTweetList($("#tweetList"), tweets);
     else $("#tweetList").innerHTML = `<div class="empty">${t("feedEmpty")}</div>`;
@@ -41,11 +55,11 @@ $("#btnPoll").addEventListener("click", async (ev) => {
   btn.dataset.label = btn.children[0].textContent;
   btn.children[0].textContent = t("checking");
   try {
-    await j("/api/poll-now", { method: "POST" });
+    await withAuthRetry(() => j("/api/poll-now", { method: "POST" }));
     await refresh();
     toast(t("toastDone"));
   } catch (e) {
-    toast(t("toastCheckFail", { e: e.message }), false);
+    toast(e.auth ? t("toastNeedToken") : t("toastCheckFail", { e: e.message }), false);
   } finally {
     btn.disabled = false; btn.classList.remove("loading");
     btn.children[0].textContent = t("check");
@@ -56,7 +70,7 @@ $("#btnNotify").addEventListener("click", async (ev) => {
   const btn = ev.currentTarget;
   btn.disabled = true;
   try {
-    const results = await j("/api/test-notify", { method: "POST" });
+    const results = await withAuthRetry(() => j("/api/test-notify", { method: "POST" }));
     if (!results.length) { toast(t("toastNoChannel"), false); }
     else {
       const fails = results.filter((r) => !r.ok);
@@ -67,7 +81,7 @@ $("#btnNotify").addEventListener("click", async (ev) => {
         !fails.length);
     }
   } catch (e) {
-    toast(t("toastSendFail", { e: e.message }), false);
+    toast(e.auth ? t("toastNeedToken") : t("toastSendFail", { e: e.message }), false);
   } finally {
     btn.disabled = false;
   }

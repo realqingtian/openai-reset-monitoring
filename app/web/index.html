@@ -37,6 +37,9 @@ try {
       <span class="badge-demo" id="demoBadge" hidden>DEMO</span>
     </div>
     <div class="nav-actions">
+      <button id="btnAuth" class="lock-btn" type="button" hidden data-i18n-title="authBtnTip">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>
+      </button>
       <div class="seg" id="themeSeg" role="tablist" aria-label="Theme">
         <span class="seg-thumb" aria-hidden="true"></span>
         <button class="seg-item icon-only theme-btn" data-mode="light" type="button" data-i18n-title="lightMode">
@@ -158,6 +161,20 @@ try {
   <footer class="foot rv" id="foot"></footer>
 </div>
 <div id="toast" class="toast" hidden></div>
+
+<div id="authMask" class="auth-mask" hidden>
+  <div class="card auth-card" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+    <div class="card-core">
+      <div class="sub-title" id="authTitle" data-i18n="authTitle">管理员验证</div>
+      <p class="auth-desc" data-i18n="authDesc">此操作需要访问令牌（MONITOR_ACCESS_TOKEN）。保存后自动重试；留空保存则清除本地已保存的令牌。</p>
+      <input id="authInput" class="auth-input" type="password" autocomplete="off" spellcheck="false">
+      <div class="auth-actions">
+        <button id="authCancel" class="btn btn-ghost" type="button" data-i18n="authCancel">取消</button>
+        <button id="authSave" class="btn btn-primary" type="button" data-i18n="authSave">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script type="module" src="/static/js/main.js"></script>
 </body>

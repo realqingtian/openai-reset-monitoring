@@ -369,6 +369,32 @@ html.theming .nav-inner, html.theming .toast {
   border: 1px solid var(--line); border-radius: 999px; padding: 3px 11px;
 }
 
+/* ---------- 访问令牌：导航锁按钮 + 解锁弹窗 ---------- */
+.lock-btn {
+  display: inline-flex; align-items: center; justify-content: center; height: 34px; width: 34px;
+  border-radius: 999px; border: 1px solid var(--line); background: var(--btn2-bg);
+  color: var(--muted); cursor: pointer;
+  transition: background-color 0.3s var(--ease), color 0.3s var(--ease), border-color 0.3s var(--ease);
+}
+.lock-btn:hover { background: var(--btn2-hover); border-color: var(--line-strong); color: var(--text); }
+.auth-mask {
+  position: fixed; inset: 0; z-index: 90; padding: 20px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.45); backdrop-filter: blur(6px);
+  animation: mask-in 0.3s var(--ease);
+}
+@keyframes mask-in { from { opacity: 0; } to { opacity: 1; } }
+.auth-card { width: min(400px, 100%); animation: swapIn 0.35s var(--ease); }
+.auth-desc { color: var(--muted); font-size: 12.5px; line-height: 1.7; margin: 8px 0 12px; }
+.auth-input {
+  width: 100%; padding: 10px 13px; font-family: var(--font-mono); font-size: 13px;
+  color: var(--text); background: var(--btn2-bg); border: 1px solid var(--line-strong);
+  border-radius: 12px; outline: none;
+  transition: border-color 0.3s var(--ease), background-color 0.3s var(--ease);
+}
+.auth-input:focus { border-color: var(--hit-accent); background: transparent; }
+.auth-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px; }
+
 /* ---------- 重置节奏卡：行式统计 + 迷你时间线 ---------- */
 .rhythm-rows { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
 .r-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; cursor: default; }

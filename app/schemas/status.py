@@ -40,6 +40,7 @@ class StatusOut(BaseModel):
 
     demo: bool
     debug: bool
+    access_protected: bool = False  # 是否启用访问令牌（启用后写接口需携带令牌，读接口保持公开）
     env_mode: str
     site_name: Optional[str] = None
     config_file: Optional[str] = None
