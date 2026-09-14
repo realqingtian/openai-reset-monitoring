@@ -18,7 +18,7 @@
 - 🔔 **五渠道推送**：飞书 / 钉钉 / 企微 / Bark / Telegram，命中只推一轮、渠道失败自动按渠道补推（成功渠道不重发），重复公告不重复打扰
 - 🩺 **数据源自告警**：数据源连续检查失败自动经全部渠道发告警、恢复后发恢复通知，杜绝"监控悄悄挂了没人知道"
 - 📈 **重置节奏统计**：基于命中历史推算平均重置间隔、上次命中与下次预期窗口，配迷你时间线一目了然
-- 🔐 **可选访问令牌**：配置 `MONITOR_ACCESS_TOKEN` 后面板照常公开查看，「立即检查」等操作需携带令牌
+- 🔐 **JWT 登录鉴权**：面板匿名可看（24 小时数据），「立即检查」等操作引导管理员登录；JWT（HS256）默认 24 小时有效，可配置
 - 📊 **监控面板**：左侧告警横幅 + 24 小时帖子流；右侧实时统计、数据源、通知渠道、历史命中、检查日志；60 秒自动刷新
 - 🕐 **时间一目了然**：每条帖子同时标注真实发布时间（UTC+0）、换算时间（UTC+8）和"N 小时前发布"，推送消息同样双时区
 - 🔤 **帖子一键翻译**：帖子卡片自带"翻译"按钮，机器翻译为中文（Google 通道为主、MyMemory 兜底，均免 key），译文进 SQLite 缓存，刷新页面不丢失
@@ -30,21 +30,117 @@
 
 ```bash
 # 1.（可选）先跑 DEMO 模式看效果，无需任何配置
-DEMO=1 bash run.sh
-# 打开 http://127.0.0.1:8730（若已创建 .env，端口以 .env 里的 MONITOR_PORT 为准）
+DEMO=1 bash start-backend.sh        # Windows：start-backend.bat
+# 打开 http://127.0.0.1:8730
 
-# 2. 正式启用：创建 .env 并填入凭证（run.sh 首次运行也会自动创建）
+# 2. 正式启用：创建 .env 并填入凭证（脚本首次运行也会自动创建）
 cp .env.example .env
-# 编辑 .env（每一项都有注释引导），然后重启：
-bash run.sh
+# 编辑 .env：至少填一个数据源（见下文「配置说明」），然后重启：
+bash start-backend.sh
 ```
 
-启动后访问 `http://127.0.0.1:端口`。端口看 `.env` 里的 `MONITOR_PORT`
-（示例配置给的是 `8080`，什么都不配时内置默认是 `8730`）。
+启动后访问 `http://127.0.0.1:端口`（端口看 `.env` 里的 `MONITOR_PORT`，
+示例配置是 `8080`，什么都不配时内置默认 `8730`）。
 
-`run.sh` 会自动创建虚拟环境并安装依赖：检测到 [uv](https://docs.astral.sh/uv/) 时用 uv（更快），
-否则自动回退 `python3 -m venv` + pip。uv 用户也可以手动 `uv sync` 同步依赖
-（依赖同时声明在 `pyproject.toml`，mypy 在 dev 依赖组里）。
+说明：
+
+- `start-backend.sh`（Windows 用 `start-backend.bat`）会自动创建虚拟环境并安装后端依赖
+  （优先用 [uv](https://docs.astral.sh/uv/)，没装则回退 `python3 -m venv` + pip）
+- 面板是 React 单页应用：源码部署需要先构建前端（见下文「开发指南」），Docker 镜像已内置构建好的面板
+
+## 生产部署
+
+### 方式一：Docker Compose（推荐，前后端分离双容器）
+
+前置条件：机器上装有 Docker 和 Docker Compose。架构：
+
+```
+浏览器 ──► frontend 容器（Caddy：托管 React 面板静态文件）
+                │ /api、/healthz 反代（同源，无 CORS）
+                ▼
+          backend 容器（FastAPI 纯 API，仅 compose 内网可达）
+```
+
+```bash
+# 1. 准备配置
+cp .env.example .env
+# 编辑 .env：填数据源凭证、通知渠道；面板对外端口用 FRONTEND_PORT（默认 8080）
+
+# 2. 构建并后台启动
+docker compose up -d --build
+
+# 3. 查看日志 / 停止
+docker compose logs -f
+docker compose down            # 停止（数据保留在 ./data）
+```
+
+完成后打开 `http://宿主机IP:8080`（改端口用 `.env` 里的 `FRONTEND_PORT`）。
+
+说明：
+
+- 两个镜像各自独立构建：frontend（bun 构建 React 面板 → Caddy 托管静态文件并反代 API）、
+  backend（uv 按锁文件装依赖 → 纯 API 服务，不对外发布端口）
+- 只改了前端代码：`docker compose up -d --build frontend`（后端容器不动，有层缓存，通常一两分钟）
+- `.env` 不会被打进镜像，密钥在运行时注入；SQLite 数据挂载在 `./data`，容器重建不丢
+
+### 方式二：源码部署（不用 Docker）
+
+```bash
+# 1. 构建前端（必需，需要 bun：https://bun.sh）
+cd frontend && bun install && bun run build && cd ..
+
+# 2. 启动后端
+bash start-backend.sh        # Windows：start-backend.bat
+```
+
+后端检测到 `frontend/dist/` 即托管面板；未构建时访问 `/` 会返回带构建指引的 503 提示页。
+
+## 开发指南
+
+前后端是分离的两个服务，开发时**各开一个终端各自启动**。环境要求（脚本自动分级回退）：
+
+- 后端：[uv](https://docs.astral.sh/uv/) 或 Python ≥ 3.9 二者其一
+- 前端：[bun](https://bun.sh) 或 Node.js 二者其一
+
+### 1. 启动后端
+
+```bash
+bash start-backend.sh        # macOS / Linux
+start-backend.bat            # Windows
+```
+
+脚本会自动创建虚拟环境、安装依赖并启动（uv 和传统 pip 二选一，自动检测）。
+也可以完全手动执行同样的步骤：
+
+```bash
+# 创建虚拟环境并安装依赖（两种方式二选一）
+uv venv && uv pip install -r requirements.txt                        # uv 方式
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt   # 传统 pip 方式（Windows 用 .venv\Scripts\）
+
+# 启动后端（读取 .env 配置：端口 MONITOR_PORT、示例配置 8080）
+.venv/bin/python -m app.main
+```
+
+### 2. 启动前端
+
+```bash
+cd frontend
+bun install     # 首次执行
+bun dev         # 开发服务器：http://localhost:5173（改 frontend/src 代码即时热更新）
+```
+
+`/api`、`/healthz` 请求会自动代理到本机后端 8080（代理目标在 `frontend/vite.config.ts`，
+后端改端口需同步修改），不存在跨域问题。
+
+### 质量检查
+
+```bash
+bash check.sh                        # 后端：ruff 检查 + 格式 + mypy 类型（任何交付前必须全绿）
+cd frontend && bun run lint          # 前端：oxlint
+cd frontend && bun run build         # 前端：类型检查 + 构建
+```
+
+前端改动交付前需在浏览器验证渲染正常、console 无报错。
 
 ## 面板怎么看
 
@@ -60,7 +156,8 @@ bash run.sh
 - **数据源 / 通知渠道**：每个源显示"正常 / 失败 · N 分钟前"；渠道显示是否就绪
 - **历史命中**：所有命中过的公告（不限 24 小时窗口），最多显示两行内容，点行直达原推
 - **检查日志**：每次轮询一条（时间、来源、成功/失败、新帖数、耗时），保留 30 天，可分页
-- **右上角按钮**：主题切换、立即检查；"发送测试通知"仅在 `MONITOR_ENV=debug` 时出现（见下文）
+- **右上角按钮**：登录徽标（开启鉴权后显示；未登录是锁图标，已登录显示绿点 + 用户名，点开可退出）、主题切换、立即检查；
+  "发送测试通知"仅在 `MONITOR_ENV=debug` 时出现（见下文）
 
 ## 配置说明
 
@@ -77,7 +174,10 @@ bash run.sh
 | `MONITOR_LOOKBACK_HOURS` | `24` | 面板展示与告警窗口（小时） |
 | `MONITOR_INCLUDE_REPLIES` | `true` | 是否同时监控回复（公告偶尔以回复形式补充）；RSSHub 源无法判定回复，面板徽章仅 twitterapi.io 有 |
 | `MONITOR_HOST` / `MONITOR_PORT` | `127.0.0.1` / `8730` | 面板服务监听地址（示例配置为 `0.0.0.0:8080`） |
-| `MONITOR_ACCESS_TOKEN` | 空 | 可选访问令牌：配置后「立即检查」「发送测试通知」需携带（`X-Access-Token` 或 `Authorization: Bearer`），面板查看保持公开；留空不启用 |
+| `MONITOR_ADMIN_USER` | `admin` | 管理员登录用户名 |
+| `MONITOR_ADMIN_PASSWORD` | 空 | 管理员密码；配置后「立即检查」等操作需登录（JWT），面板查看保持公开；留空不启用鉴权 |
+| `MONITOR_JWT_SECRET` | 空 | JWT 签名密钥；留空则从管理员口令派生稳定密钥（改口令即全量失效） |
+| `MONITOR_TOKEN_EXPIRE_HOURS` | `24` | 登录态有效期（小时） |
 | `MONITOR_PUBLIC_URL` | 空 | 可选对外地址；配置后数据源自告警消息会附上面板链接 |
 | `MONITOR_SOURCE_ALERT_THRESHOLD` | `3` | 数据源自告警：连续多少轮检查全部失败后经渠道告警（`0` 关闭） |
 | `MONITOR_SOURCE_ALERT_REPEAT_MINUTES` | `60` | 告警未恢复时的重发间隔分钟数（`0` 不重发） |
@@ -167,23 +267,46 @@ https://x.com/thsottiaux/status/…
 误报或漏报时，用 `MONITOR_RULES_JSON` 环境变量覆盖（JSON 数组，结构与内置一致；写错会自动回退内置规则并记录日志）。
 想监控其他账号（如 @sama、@OpenAI），把 `MONITOR_ACCOUNTS` 改成逗号分隔即可。
 
-## Docker 部署
+## API
 
-项目自带 `Dockerfile` 与 `docker-compose.yml`（配置复用根目录 `.env`，数据库挂载 `./data` 持久化）：
+| 端点 | 说明 |
+|---|---|
+| `GET /` | 监控面板 |
+| `GET /api/status` | 总状态（命中、数据源健康、通知渠道、规则） |
+| `GET /api/tweets?hours=24` | 时间窗口内的帖子 |
+| `GET /api/hits` | 历史命中记录 |
+| `GET /api/polls` | 检查日志 |
+| `GET /api/stats` | 重置节奏统计（平均间隔 / 上次命中 / 预期窗口） |
+| `GET /api/translate?id=…&to=zh` | 翻译指定帖子（需登录；`to` 支持 `zh` / `en`，带 SQLite 缓存） |
+| `POST /api/login` | 管理员登录，签发 JWT |
+| `POST /api/poll-now` | 立即触发一次检查（需登录） |
+| `POST /api/test-notify` | 向所有已配置渠道发测试消息（需登录） |
+| `GET /healthz` | 健康检查 |
 
-```bash
-docker compose up -d --build   # 构建并后台启动
-docker compose logs -f         # 查看日志
-docker compose down            # 停止（数据保留在 ./data）
-```
+配置 `MONITOR_ADMIN_PASSWORD` 后，`POST /api/poll-now`、`POST /api/test-notify` 与 `/api/translate` 需先登录：
+`POST /api/login` 以账密换 JWT，之后以 `Authorization: Bearer <token>` 携带。读接口与面板保持公开，
+匿名访问 `/api/tweets` 时窗口上限钳制为 24 小时。
+所有 `/api/*` 返回统一包体 `{code, data, message}`（成功 `code=200`）；异常时为 `{code, message, errors}`，HTTP 状态码与 `code` 一致。`/healthz` 例外，原样返回 `{"ok": true}`。响应出参为 Pydantic 模型，`/docs`（及 `/redoc`、`/openapi.json`）可查看 OpenAPI 结构，仅在 `MONITOR_ENV=debug` 环境开放，生产环境不注册这些路径。
 
-宿主机端口跟随 `.env` 的 `MONITOR_PORT`。`.env` 不会被打进镜像，密钥在运行时注入。
+## 行为细节
 
-## 部署为常驻服务（可选）
+- **窗口与告警**：面板展示最近 24 小时（`MONITOR_LOOKBACK_HOURS` 可调）；只有"新入库且在窗口内"的命中推文才触发推送，
+  首次启动回填的历史命中只入库不推送，避免半夜被旧闻吵醒
+- **启动回扫**：每次启动用当前规则重扫最近 30 天的历史推文，命中的补上面板记录（改规则后历史判定自愈）；
+  其中 24 小时内发布且从未推送过的错过公告会补推，更早的只补记录不再推送，已推送或有渠道尝试记录的不重发
+- **不重复打扰**：同一公告被发布多条推文（内容高度相似）只推第一条
+- **时延**：轮询间隔默认 5 分钟。重置公告从发推到生效通常有几小时窗口，5 分钟足够；调小会更及时，抓取费用相应增加
+- **自告警**：数据源连续 `MONITOR_SOURCE_ALERT_THRESHOLD`（默认 3）轮检查全部失败时，经全部已配置渠道发告警，恢复后发恢复通知；
+  告警状态存库，重启后既不重复打扰也不漏发恢复；未配置任何数据源不算失败，DEMO 模式不告警也不真实推送
+- **访问鉴权**：`MONITOR_ADMIN_PASSWORD` 留空即完全关闭；配置后面板匿名可看（`/api/tweets` 匿名窗口钳制 24 小时），
+  立即检查 / 测试通知 / 翻译需登录（JWT 默认 24 小时，密钥未显式配置时从口令派生，改口令全量失效）
+- **数据保留**：未命中推文保留 30 天滚动清理，命中推文保留 180 天（供"重置节奏"统计采样，两者均可配置）；检查日志只保留 30 天
+
+## 常驻运行（可选）
 
 ```bash
 # 方式一：nohup 后台运行
-nohup bash run.sh > reset-monitor.log 2>&1 &
+nohup bash start-backend.sh > reset-monitor.log 2>&1 &
 
 # 方式二：launchd（macOS 开机自启）
 # 创建 ~/Library/LaunchAgents/com.openai_reset_monitoring.plist，内容按需修改：
@@ -196,7 +319,7 @@ nohup bash run.sh > reset-monitor.log 2>&1 &
   <key>Label</key><string>com.openai_reset_monitoring</string>
   <key>ProgramArguments</key><array>
     <string>/bin/bash</string><string>-c</string>
-    <string>cd /path/to/OpenAI-Reset-Monitoring &amp;&amp; bash run.sh</string>
+    <string>cd /path/to/OpenAI-Reset-Monitoring &amp;&amp; bash start-backend.sh</string>
   </array>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
@@ -210,45 +333,27 @@ nohup bash run.sh > reset-monitor.log 2>&1 &
 launchctl load ~/Library/LaunchAgents/com.openai_reset_monitoring.plist
 ```
 
-## API
-
-| 端点 | 说明 |
-|---|---|
-| `GET /` | 监控面板 |
-| `GET /api/status` | 总状态（命中、数据源健康、通知渠道、规则） |
-| `GET /api/tweets?hours=24` | 时间窗口内的帖子 |
-| `GET /api/hits` | 历史命中记录 |
-| `GET /api/polls` | 检查日志 |
-| `GET /api/stats` | 重置节奏统计（平均间隔 / 上次命中 / 预期窗口） |
-| `GET /api/translate?id=…&to=zh` | 翻译指定帖子（`to` 支持 `zh` / `en`，带 SQLite 缓存） |
-| `POST /api/poll-now` | 立即触发一次检查 |
-| `POST /api/test-notify` | 向所有已配置渠道发测试消息 |
-| `GET /healthz` | 健康检查 |
-
-配置 `MONITOR_ACCESS_TOKEN` 后，`POST /api/poll-now` 与 `POST /api/test-notify` 需携带令牌（`X-Access-Token` 或 `Authorization: Bearer`），其余接口保持公开。
-所有 `/api/*` 返回统一包体 `{code, data, message}`（成功 `code=200`）；异常时为 `{code, message, errors}`，HTTP 状态码与 `code` 一致。`/healthz` 例外，原样返回 `{"ok": true}`。响应出参为 Pydantic 模型，`/docs`（及 `/redoc`、`/openapi.json`）可查看 OpenAPI 结构，仅在 `MONITOR_ENV=debug` 环境开放，生产环境不注册这些路径。
-
-## 行为细节
-
-- **窗口与告警**：面板展示最近 24 小时（`MONITOR_LOOKBACK_HOURS` 可调）；只有"新入库且在窗口内"的命中推文才触发推送，
-  首次启动回填的历史命中只入库不推送，避免半夜被旧闻吵醒
-- **启动回扫**：每次启动用当前规则重扫最近 30 天的历史推文，命中的补上面板记录（改规则后历史判定自愈）；
-  其中 24 小时内发布且从未推送过的错过公告会补推，更早的只补记录不再推送，已推送或有渠道尝试记录的不重发
-- **不重复打扰**：同一公告被发布多条推文（内容高度相似）只推第一条
-- **时延**：轮询间隔默认 5 分钟。重置公告从发推到生效通常有几小时窗口，5 分钟足够；调小会更及时，抓取费用相应增加
-- **自告警**：数据源连续 `MONITOR_SOURCE_ALERT_THRESHOLD`（默认 3）轮检查全部失败时，经全部已配置渠道发告警，恢复后发恢复通知；
-  告警状态存库，重启后既不重复打扰也不漏发恢复；未配置任何数据源不算失败，DEMO 模式不告警也不真实推送
-- **数据保留**：未命中推文保留 30 天滚动清理，命中推文保留 180 天（供"重置节奏"统计采样，两者均可配置）；检查日志只保留 30 天
-
 ## 项目结构
 
 ```
+frontend/             # React 独立前端工程（Vite + React 19 + TS，bun 管理依赖，react-i18next + React Bits）
+├── src/api/          # 接口层：统一包体/JWT 会话/后端出参类型
+├── src/components/   # Nav / Footer / LoginDialog + React Bits 动画组件（CountUp / AnimatedContent）
+├── src/context/      # Auth / Theme / Toast 跨模块状态
+├── src/features/     # 业务区块：hero / feed / sidebar
+├── src/i18n/         # i18next 初始化 + locales/{zh,en}.ts
+├── src/styles/       # panel.css（全量样式：主题令牌 / 布局 / 组件 / 动效）
+├── Caddyfile         # 生产入口：静态托管 + /api 反代到后端容器（SPA 回退、缓存策略）
+├── Dockerfile        # 前端镜像：bun 构建 → Caddy 托管
+└── public/assets/    # favicon（深浅两套）/ LOGO / apple-touch-icon
+
 app/
 ├── main.py            # 服务入口：应用装配 + 面板页面，/api/* 路由在 api/ 按域拆分
-├── api/               # 路由层：status / tweets / polls / translate / system（健康检查、测试通知）
+├── api/               # 路由层：auth / status / tweets / polls / stats / translate / system（健康检查、测试通知）
 ├── core/              # 横切基础
 │   ├── config.py      # 配置加载（.env / 环境变量）+ 内置命中规则
 │   ├── errors.py      # 统一异常处理：异常转同状态码包体
+│   ├── security.py    # JWT 登录鉴权（签发 / 校验 / 保护依赖）
 │   ├── timeutil.py    # 时间解析 / UTC 格式化
 │   └── text.py        # 文本归一化 / 相似度 / 内容指纹
 ├── schemas/           # 出参构造：各接口 DTO 与 /api/* 统一响应包裹
@@ -256,29 +361,18 @@ app/
 ├── repositories/      # 数据访问层：推文/检查日志/源健康/通知日志/翻译缓存
 ├── db/
 │   └── database.py    # SQLite 异步引擎/会话/建表与防御迁移
-├── services/          # 业务层：轮询调度/规则匹配/状态聚合/查询/翻译/测试通知
+├── services/          # 业务层：轮询调度/规则匹配/状态聚合/查询/翻译/测试通知/数据源自监控
 │   ├── matcher.py     # 关键词命中规则
-│   └── poller.py      # 轮询调度：拉取 → 去重 → 匹配 → 推送
+│   ├── poller.py      # 轮询调度：拉取 → 去重 → 匹配 → 推送
+│   ├── source_watch.py# 数据源自告警：连续失败经渠道告警、恢复发通知
+│   └── stats.py       # 重置节奏统计（/api/stats）
 ├── integrations/      # 外部系统适配
 │   ├── translate.py   # 翻译上游 API 客户端（Google / MyMemory）
 │   ├── sources/       # 数据源适配器：twitterapi_io / rsshub / demo + 自动切换
 │   └── notifiers/     # 通知渠道：feishu / dingtalk / wecom / bark / telegram
-└── web/               # 监控面板（原生 ES Module，无前端构建步骤）
-    ├── index.html     # 页面外壳 + 首屏防闪烁主题脚本
-    └── static/
-        ├── css/panel.css    # 全部样式（主题令牌 / 布局 / 组件 / 动效 / 移动端）
-        └── js/              # 按职责拆分的模块，main.js 负责装配
-            ├── dom.js       # 选择器 / 转义 / toast / 数字动画 / 首屏 reveal
-            ├── i18n.js      # 文案字典与语言状态（zh / en / 自动）
-            ├── format.js    # 时间格式化与命中词高亮
-            ├── api.js       # /api/* 请求封装（统一响应包体）
-            ├── theme.js     # 主题三态 + 选项卡滑块 + favicon 跟随
-            ├── icons.js     # 内联 SVG 常量
-            ├── translate.js # 译文缓存 + 展开/收起（重绘后保持手动收起状态）
-            ├── feed.js      # 信息流卡片与命中历史渲染
-            ├── panel.js     # hero / 数据源 / 检查日志渲染
-            └── main.js      # 刷新主循环、顶部按钮与跨模块联动装配
 ```
+
+前端工程细节（目录职责、i18n 与 React Bits 约定）见 [frontend/README.md](frontend/README.md)。
 
 ## 开源协议
 
