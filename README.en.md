@@ -43,7 +43,7 @@ alert on the dashboard and pushes notifications to Feishu / DingTalk / WeCom / B
 ```bash
 # 1. (optional) try DEMO mode first — no configuration needed
 DEMO=1 bash start-backend.sh        # Windows: start-backend.bat
-# open http://127.0.0.1:8080
+# open http://127.0.0.1:8730
 
 # 2. production: create .env and fill in credentials (the script also creates it on first run)
 cp .env.example .env
@@ -52,7 +52,7 @@ bash start-backend.sh
 ```
 
 Once started, visit `http://127.0.0.1:<port>`. The port follows `MONITOR_PORT` in `.env`
-(with no configuration the built-in default is `8080`).
+(with no configuration the built-in default is `8730`).
 
 Notes:
 
@@ -78,7 +78,7 @@ browser ──► frontend container (Caddy: serves the React panel's static fil
 ```bash
 # 1. prepare configuration
 cp .env.example .env
-# edit .env: fill in data source credentials, push channels; the public port is FRONTEND_PORT (default 80)
+# edit .env: fill in data source credentials, push channels; the public port is FRONTEND_PORT (default 8080)
 
 # 2. build and start in the background
 docker compose up -d --build
@@ -88,7 +88,7 @@ docker compose logs -f
 docker compose down            # stop (data kept in ./data)
 ```
 
-Then open `http://<host>` (the public port defaults to 80; change it via `FRONTEND_PORT` in `.env`).
+Then open `http://<host>:8080` (the public port defaults to 8080; change it via `FRONTEND_PORT` in `.env`).
 
 Notes:
 
@@ -134,7 +134,7 @@ automatically). You can also do the same steps manually:
 uv venv && uv pip install -r requirements.txt                      # with uv
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt # classic pip (Windows: .venv\Scripts\)
 
-# start the backend (reads .env: port MONITOR_PORT, sample config 8080)
+# start the backend (reads .env: port MONITOR_PORT, sample config 8730)
 .venv/bin/python -m app.main
 ```
 
@@ -146,7 +146,7 @@ bun install     # first time
 bun dev         # dev server: http://localhost:5173 (hot reload on frontend/src changes)
 ```
 
-`/api` and `/healthz` requests are proxied to the local backend on 8080 (proxy target lives in
+`/api` and `/healthz` requests are proxied to the local backend on 8730 (proxy target lives in
 `frontend/vite.config.ts` — sync it if you change the backend port); no CORS to worry about.
 
 ### Quality checks
@@ -192,7 +192,7 @@ How to obtain every item is documented in the comments of `.env.example`.
 | `MONITOR_ENV` | `production` | with `debug` the dashboard shows the "Send test notification" button and serves `/docs`, `/redoc`, `/openapi.json` API docs |
 | `DEMO` | empty | set to `1` to run on built-in demo data |
 | `MONITOR_SITE_NAME` | `Codex Reset Monitor` | dashboard name (browser tab title + navbar) |
-| `MONITOR_HOST` / `MONITOR_PORT` | `127.0.0.1` / `8080` | dashboard listen address (the sample config uses `0.0.0.0:8080`) |
+| `MONITOR_HOST` / `MONITOR_PORT` | `127.0.0.1` / `8730` | dashboard listen address (the sample config uses `0.0.0.0:8730`) |
 | `MONITOR_ACCOUNTS` | `thsottiaux` | X accounts to watch, comma separated, without @ |
 | `MONITOR_POLL_INTERVAL` | `5` | polling interval (minutes) |
 | `MONITOR_LOOKBACK_HOURS` | `24` | dashboard & alert window (hours) |

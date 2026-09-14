@@ -29,6 +29,6 @@ else
   exit 1
 fi
 
-# 端口与监听地址读取 .env（MONITOR_PORT / MONITOR_HOST，默认 127.0.0.1:8080）
+# 端口与监听地址读取 .env（MONITOR_PORT / MONITOR_HOST，默认 127.0.0.1:8730）
 echo "==> 启动后端（等价手动命令：.venv/bin/python -m app.main）"
 exec .venv/bin/python -m app.main

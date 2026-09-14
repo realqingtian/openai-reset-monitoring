@@ -31,7 +31,7 @@
 ```bash
 # 1.（可选）先跑 DEMO 模式看效果，无需任何配置
 DEMO=1 bash start-backend.sh        # Windows：start-backend.bat
-# 打开 http://127.0.0.1:8080
+# 打开 http://127.0.0.1:8730
 
 # 2. 正式启用：创建 .env 并填入凭证（脚本首次运行也会自动创建）
 cp .env.example .env
@@ -40,7 +40,7 @@ bash start-backend.sh
 ```
 
 启动后访问 `http://127.0.0.1:端口`（端口看 `.env` 里的 `MONITOR_PORT`，
-什么都不配时内置默认 `8080`）。
+什么都不配时内置默认 `8730`）。
 
 说明：
 
@@ -64,7 +64,7 @@ bash start-backend.sh
 ```bash
 # 1. 准备配置
 cp .env.example .env
-# 编辑 .env：填数据源凭证、通知渠道；面板对外端口用 FRONTEND_PORT（默认 80）
+# 编辑 .env：填数据源凭证、通知渠道；面板对外端口用 FRONTEND_PORT（默认 8080）
 
 # 2. 构建并后台启动
 docker compose up -d --build
@@ -74,7 +74,7 @@ docker compose logs -f
 docker compose down            # 停止（数据保留在 ./data）
 ```
 
-完成后打开 `http://宿主机IP`（对外端口默认 80，改端口用 `.env` 里的 `FRONTEND_PORT`）。
+完成后打开 `http://宿主机IP:8080`（对外端口默认 8080，改端口用 `.env` 里的 `FRONTEND_PORT`）。
 
 说明：
 
@@ -117,7 +117,7 @@ start-backend.bat            # Windows
 uv venv && uv pip install -r requirements.txt                        # uv 方式
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt   # 传统 pip 方式（Windows 用 .venv\Scripts\）
 
-# 启动后端（读取 .env 配置：端口 MONITOR_PORT、示例配置 8080）
+# 启动后端（读取 .env 配置：端口 MONITOR_PORT、示例配置 8730）
 .venv/bin/python -m app.main
 ```
 
@@ -129,7 +129,7 @@ bun install     # 首次执行
 bun dev         # 开发服务器：http://localhost:5173（改 frontend/src 代码即时热更新）
 ```
 
-`/api`、`/healthz` 请求会自动代理到本机后端 8080（代理目标在 `frontend/vite.config.ts`，
+`/api`、`/healthz` 请求会自动代理到本机后端 8730（代理目标在 `frontend/vite.config.ts`，
 后端改端口需同步修改），不存在跨域问题。
 
 ### 质量检查
@@ -170,7 +170,7 @@ cd frontend && bun run build         # 前端：类型检查 + 构建
 | `MONITOR_ENV` | `production` | 设为 `debug` 时面板才显示"发送测试通知"按钮，并开放 `/docs`、`/redoc`、`/openapi.json` API 文档 |
 | `DEMO` | 空 | 设为 `1` 使用内置演示数据 |
 | `MONITOR_SITE_NAME` | `Codex Reset Monitor` | 面板名称（浏览器标签页标题 + 导航栏名称） |
-| `MONITOR_HOST` / `MONITOR_PORT` | `127.0.0.1` / `8080` | 面板服务监听地址（示例配置为 `0.0.0.0:8080`） |
+| `MONITOR_HOST` / `MONITOR_PORT` | `127.0.0.1` / `8730` | 面板服务监听地址（示例配置为 `0.0.0.0:8730`） |
 | `MONITOR_ACCOUNTS` | `thsottiaux` | 监控的 X 账号，逗号分隔，不带 @ |
 | `MONITOR_POLL_INTERVAL` | `5` | 轮询间隔（分钟） |
 | `MONITOR_LOOKBACK_HOURS` | `24` | 面板展示与告警窗口（小时） |

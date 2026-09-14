@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 前端启动脚本（macOS / Linux）：安装依赖并启动 Vite 开发服务器（http://localhost:5173，
-# /api、/healthz 自动代理到本机 8080 后端，见 frontend/vite.config.ts）。
+# /api、/healthz 自动代理到本机 8730 后端，见 frontend/vite.config.ts）。
 # 后端启动用 start-backend.sh。生产容器化部署见 docker-compose.yml。
 # 包管理器分级回退：bun → node(npm)，都没有则报错退出。
 set -e

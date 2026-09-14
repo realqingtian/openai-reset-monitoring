@@ -1,6 +1,6 @@
 @echo off
 rem 前端启动脚本（Windows）：安装依赖并启动 Vite 开发服务器（http://localhost:5173，
-rem /api、/healthz 自动代理到本机 8080 后端，见 frontend/vite.config.ts）。
+rem /api、/healthz 自动代理到本机 8730 后端，见 frontend/vite.config.ts）。
 rem 后端启动用 start-backend.bat。生产容器化部署见 docker-compose.yml。
 rem 包管理器分级回退：bun → node(npm)，都没有则报错退出。
 chcp 65001 >nul
