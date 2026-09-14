@@ -168,21 +168,13 @@ cd frontend && bun run build         # 前端：类型检查 + 构建
 | 环境变量 | 默认值 | 说明 |
 |---|---|---|
 | `MONITOR_ENV` | `production` | 设为 `debug` 时面板才显示"发送测试通知"按钮，并开放 `/docs`、`/redoc`、`/openapi.json` API 文档 |
+| `DEMO` | 空 | 设为 `1` 使用内置演示数据 |
 | `MONITOR_SITE_NAME` | `Codex Reset Monitor` | 面板名称（浏览器标签页标题 + 导航栏名称） |
+| `MONITOR_HOST` / `MONITOR_PORT` | `127.0.0.1` / `8730` | 面板服务监听地址（示例配置为 `0.0.0.0:8080`） |
 | `MONITOR_ACCOUNTS` | `thsottiaux` | 监控的 X 账号，逗号分隔，不带 @ |
 | `MONITOR_POLL_INTERVAL` | `5` | 轮询间隔（分钟） |
 | `MONITOR_LOOKBACK_HOURS` | `24` | 面板展示与告警窗口（小时） |
 | `MONITOR_INCLUDE_REPLIES` | `true` | 是否同时监控回复（公告偶尔以回复形式补充）；RSSHub 源无法判定回复，面板徽章仅 twitterapi.io 有 |
-| `MONITOR_HOST` / `MONITOR_PORT` | `127.0.0.1` / `8730` | 面板服务监听地址（示例配置为 `0.0.0.0:8080`） |
-| `MONITOR_ADMIN_USER` | `admin` | 管理员登录用户名 |
-| `MONITOR_ADMIN_PASSWORD` | 空 | 管理员密码；配置后「立即检查」等操作需登录（JWT），面板查看保持公开；留空不启用鉴权 |
-| `MONITOR_JWT_SECRET` | 空 | JWT 签名密钥；留空则从管理员口令派生稳定密钥（改口令即全量失效） |
-| `MONITOR_TOKEN_EXPIRE_HOURS` | `24` | 登录态有效期（小时） |
-| `MONITOR_PUBLIC_URL` | 空 | 可选对外地址；配置后数据源自告警消息会附上面板链接 |
-| `MONITOR_SOURCE_ALERT_THRESHOLD` | `3` | 数据源自告警：连续多少轮检查全部失败后经渠道告警（`0` 关闭） |
-| `MONITOR_SOURCE_ALERT_REPEAT_MINUTES` | `60` | 告警未恢复时的重发间隔分钟数（`0` 不重发） |
-| `MONITOR_TWEET_RETENTION_DAYS` | `30` | 未命中推文保留天数（滚动清理） |
-| `MONITOR_HIT_RETENTION_DAYS` | `180` | 命中推文保留天数（重置节奏统计的数据源） |
 | `TWITTERAPI_IO_KEY` | 空 | twitterapi.io API Key，留空停用该源 |
 | `RSSHUB_BASE_URL` | 空 | RSSHub 实例地址，留空停用该源 |
 | `RSSHUB_ROUTE` | `twitter/user` | RSSHub 路由 |
@@ -193,8 +185,16 @@ cd frontend && bun run build         # 前端：类型检查 + 构建
 | `BARK_URL` | 空 | Bark 推送地址（https://api.day.app/你的Key） |
 | `TG_BOT_TOKEN` / `TG_CHAT_ID` | 空 | Telegram Bot 凭证（两者都填才启用） |
 | `MONITOR_NOTIFY_LANG` | `zh` | 推送消息语言：`zh` / `en`（面板语言跟随浏览器，互不影响） |
+| `MONITOR_ADMIN_USER` | `admin` | 管理员登录用户名 |
+| `MONITOR_ADMIN_PASSWORD` | 空 | 管理员密码；配置后「立即检查」等操作需登录（JWT），面板查看保持公开；留空不启用鉴权 |
+| `MONITOR_JWT_SECRET` | 空 | JWT 签名密钥；留空则从管理员口令派生稳定密钥（改口令即全量失效） |
+| `MONITOR_TOKEN_EXPIRE_HOURS` | `24` | 登录态有效期（小时） |
+| `MONITOR_PUBLIC_URL` | 空 | 可选对外地址；配置后数据源自告警消息会附上面板链接 |
+| `MONITOR_SOURCE_ALERT_THRESHOLD` | `3` | 数据源自告警：连续多少轮检查全部失败后经渠道告警（`0` 关闭） |
+| `MONITOR_SOURCE_ALERT_REPEAT_MINUTES` | `60` | 告警未恢复时的重发间隔分钟数（`0` 不重发） |
+| `MONITOR_TWEET_RETENTION_DAYS` | `30` | 未命中推文保留天数（滚动清理） |
+| `MONITOR_HIT_RETENTION_DAYS` | `180` | 命中推文保留天数（重置节奏统计的数据源） |
 | `MONITOR_RULES_JSON` | 内置规则 | 可选，用 JSON 数组覆盖命中规则 |
-| `DEMO` | 空 | 设为 `1` 使用内置演示数据 |
 
 ### 数据源（二选一即可，都配则自动切换）
 

@@ -190,21 +190,13 @@ How to obtain every item is documented in the comments of `.env.example`.
 | Env var | Default | Description |
 |---|---|---|
 | `MONITOR_ENV` | `production` | with `debug` the dashboard shows the "Send test notification" button and serves `/docs`, `/redoc`, `/openapi.json` API docs |
+| `DEMO` | empty | set to `1` to run on built-in demo data |
 | `MONITOR_SITE_NAME` | `Codex Reset Monitor` | dashboard name (browser tab title + navbar) |
+| `MONITOR_HOST` / `MONITOR_PORT` | `127.0.0.1` / `8730` | dashboard listen address (the sample config uses `0.0.0.0:8080`) |
 | `MONITOR_ACCOUNTS` | `thsottiaux` | X accounts to watch, comma separated, without @ |
 | `MONITOR_POLL_INTERVAL` | `5` | polling interval (minutes) |
 | `MONITOR_LOOKBACK_HOURS` | `24` | dashboard & alert window (hours) |
 | `MONITOR_INCLUDE_REPLIES` | `true` | also watch replies (announcements sometimes arrive as replies); RSSHub cannot detect replies, so the badge only exists for twitterapi.io |
-| `MONITOR_HOST` / `MONITOR_PORT` | `127.0.0.1` / `8730` | dashboard listen address (the sample config uses `0.0.0.0:8080`) |
-| `MONITOR_ADMIN_USER` | `admin` | admin login username |
-| `MONITOR_ADMIN_PASSWORD` | empty | admin password; when set, actions like "Check now" require login (JWT) while viewing stays public; empty disables auth |
-| `MONITOR_JWT_SECRET` | empty | JWT signing secret; when empty, a stable secret is derived from the admin password (rotating the password invalidates all tokens) |
-| `MONITOR_TOKEN_EXPIRE_HOURS` | `24` | login session lifetime (hours) |
-| `MONITOR_PUBLIC_URL` | empty | optional public URL; when set, source alerts include a panel link |
-| `MONITOR_SOURCE_ALERT_THRESHOLD` | `3` | source self-alert: alert all channels after this many consecutive fully-failed cycles (`0` disables) |
-| `MONITOR_SOURCE_ALERT_REPEAT_MINUTES` | `60` | minutes between repeat alerts while still down (`0` never repeats) |
-| `MONITOR_TWEET_RETENTION_DAYS` | `30` | retention days for non-hit posts (rolling cleanup) |
-| `MONITOR_HIT_RETENTION_DAYS` | `180` | retention days for hit posts (feeds the reset rhythm stats) |
 | `TWITTERAPI_IO_KEY` | empty | twitterapi.io API key; empty disables the source |
 | `RSSHUB_BASE_URL` | empty | RSSHub instance URL; empty disables the source |
 | `RSSHUB_ROUTE` | `twitter/user` | RSSHub route |
@@ -215,8 +207,16 @@ How to obtain every item is documented in the comments of `.env.example`.
 | `BARK_URL` | empty | Bark push URL (https://api.day.app/yourKey) |
 | `TG_BOT_TOKEN` / `TG_CHAT_ID` | empty | Telegram bot credentials (both required to enable) |
 | `MONITOR_NOTIFY_LANG` | `zh` | push message language: `zh` / `en` (the dashboard language follows the browser, independent of this) |
+| `MONITOR_ADMIN_USER` | `admin` | admin login username |
+| `MONITOR_ADMIN_PASSWORD` | empty | admin password; when set, actions like "Check now" require login (JWT) while viewing stays public; empty disables auth |
+| `MONITOR_JWT_SECRET` | empty | JWT signing secret; when empty, a stable secret is derived from the admin password (rotating the password invalidates all tokens) |
+| `MONITOR_TOKEN_EXPIRE_HOURS` | `24` | login session lifetime (hours) |
+| `MONITOR_PUBLIC_URL` | empty | optional public URL; when set, source alerts include a panel link |
+| `MONITOR_SOURCE_ALERT_THRESHOLD` | `3` | source self-alert: alert all channels after this many consecutive fully-failed cycles (`0` disables) |
+| `MONITOR_SOURCE_ALERT_REPEAT_MINUTES` | `60` | minutes between repeat alerts while still down (`0` never repeats) |
+| `MONITOR_TWEET_RETENTION_DAYS` | `30` | retention days for non-hit posts (rolling cleanup) |
+| `MONITOR_HIT_RETENTION_DAYS` | `180` | retention days for hit posts (feeds the reset rhythm stats) |
 | `MONITOR_RULES_JSON` | built-in rules | optional JSON array overriding the match rules |
-| `DEMO` | empty | set to `1` to run on built-in demo data |
 
 ### Sources (pick one; both configured = automatic failover)
 
