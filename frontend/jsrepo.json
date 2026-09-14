@@ -1,0 +1,9 @@
+{
+  "$schema": "https://unpkg.com/jsrepo@2/schemas/project.d.json",
+  "repos": [],
+  "includeTests": false,
+  "includeDocs": false,
+  "paths": {
+    "*": "./src/lib/react-bits"
+  }
+}

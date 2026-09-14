@@ -8,3 +8,7 @@ __pycache__/
 .idea/
 .mimosa/
 .video_agent/
+
+# 前端独立工程（frontend/）：依赖与构建产物不入库
+frontend/node_modules/
+frontend/dist/
