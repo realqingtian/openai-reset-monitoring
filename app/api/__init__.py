@@ -2,9 +2,10 @@
 
 from fastapi import APIRouter
 
-from app.api import polls, stats, status, system, translate, tweets
+from app.api import auth, polls, stats, status, system, translate, tweets
 
 api_router = APIRouter()
+api_router.include_router(auth.router)
 api_router.include_router(status.router)
 api_router.include_router(tweets.router)
 api_router.include_router(polls.router)

@@ -187,7 +187,11 @@ class Settings(BaseSettings):
     monitor_lookback_hours: int = 24
     monitor_notify_lang: str = "zh"
     monitor_rules_json: Optional[str] = None
-    monitor_access_token: str = ""
+    # 登录鉴权（JWT）：MONITOR_ADMIN_PASSWORD 留空=整体关闭（匿名只读，全放行）；配置后写操作需登录
+    monitor_admin_user: str = "admin"
+    monitor_admin_password: str = ""
+    monitor_jwt_secret: str = ""  # 留空则从管理员口令派生稳定密钥（重启不掉 token，改口令即全量失效）
+    monitor_token_expire_hours: int = 24
     monitor_public_url: str = ""
     # 数据源自告警：连续 N 轮检查失败后经通知渠道告警（0=关闭）；告警未恢复时每隔多少分钟重发（0=不重发）
     monitor_source_alert_threshold: int = 3
@@ -231,7 +235,9 @@ class Settings(BaseSettings):
         v = (v or "").strip().lower()
         return v if v in ("zh", "en") else "zh"
 
-    @field_validator("monitor_port", "monitor_poll_interval", "monitor_lookback_hours", mode="after")
+    @field_validator(
+        "monitor_port", "monitor_poll_interval", "monitor_lookback_hours", "monitor_token_expire_hours", mode="after"
+    )
     @classmethod
     def _positive(cls, v):
         return max(1, int(v))
@@ -260,7 +266,22 @@ class Settings(BaseSettings):
 
     @property
     def access_protected(self) -> bool:
-        return bool(self.monitor_access_token.strip())
+        """鉴权是否启用（面板展示字段沿用旧名，语义 = 需要登录才能操作）。"""
+        return self.auth_enabled
+
+    @property
+    def auth_enabled(self) -> bool:
+        return bool(self.monitor_admin_password.strip())
+
+    @cached_property
+    def jwt_secret(self) -> str:
+        """JWT 签名密钥：显式配置优先；否则从管理员口令派生稳定密钥（换口令即全量失效）。"""
+        explicit = self.monitor_jwt_secret.strip()
+        if explicit:
+            return explicit
+        import hashlib
+
+        return hashlib.sha256(f"jwt:{self.monitor_admin_user}:{self.monitor_admin_password}".encode()).hexdigest()
 
     @property
     def docs_enabled(self) -> bool:

@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 
-from app.core.security import require_access_token
+from app.core.security import require_login
 from app.schemas import TestNotifyResult, UnifiedResponse, ok
 from app.services import notify as notify_service
 
@@ -19,7 +19,7 @@ async def healthz():
 @router.post(
     "/api/test-notify",
     response_model=UnifiedResponse[list[TestNotifyResult]],
-    dependencies=[Depends(require_access_token)],
+    dependencies=[Depends(require_login)],
 )
 async def api_test_notify(request: Request):
     return ok(await notify_service.test_notify(request.app.state.cfg))
