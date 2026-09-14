@@ -79,22 +79,33 @@ function Panel() {
               <div className="card-core">
                 <AnimatedContent distance={24} duration={0.6}>
                   <LiveStats status={status} />
-                  <div className="divider" />
-                  <RhythmCard stats={stats} />
-                  <Sources status={status} />
                 </AnimatedContent>
               </div>
             </div>
             <div className="card">
               <div className="card-core">
                 <AnimatedContent distance={24} duration={0.6} delay={0.1}>
-                  <HitHistory hits={hits} />
+                  <RhythmCard stats={stats} />
                 </AnimatedContent>
               </div>
             </div>
             <div className="card">
               <div className="card-core">
                 <AnimatedContent distance={24} duration={0.6} delay={0.2}>
+                  <Sources status={status} />
+                </AnimatedContent>
+              </div>
+            </div>
+            <div className="card">
+              <div className="card-core">
+                <AnimatedContent distance={24} duration={0.6} delay={0.3}>
+                  <HitHistory hits={hits} />
+                </AnimatedContent>
+              </div>
+            </div>
+            <div className="card">
+              <div className="card-core">
+                <AnimatedContent distance={24} duration={0.6} delay={0.4}>
                   <PollLog polls={polls} />
                 </AnimatedContent>
               </div>

@@ -5,6 +5,13 @@ from typing import Optional
 from pydantic import BaseModel
 
 
+class DayHitOut(BaseModel):
+    """单日命中计数（按 UTC 日聚合），供重置节奏热力图。"""
+
+    day: str  # YYYY-MM-DD
+    count: int
+
+
 class StatsOut(BaseModel):
     """重置节奏统计：全部字段可空（库中尚无命中时前端展示空态）。"""
 
@@ -15,3 +22,4 @@ class StatsOut(BaseModel):
     next_expected_at: Optional[str] = None
     since: Optional[str] = None
     recent_hits: list[str] = []  # 最近若干次命中的发布时间（升序），供迷你时间线
+    daily_hits: list[DayHitOut] = []  # 按天命中计数（UTC 日，升序），供热力图

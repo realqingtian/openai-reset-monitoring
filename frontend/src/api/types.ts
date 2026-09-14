@@ -64,6 +64,7 @@ export interface Stats {
   next_expected_at?: string | null;
   since?: string | null;
   recent_hits: string[];
+  daily_hits: { day: string; count: number }[];
 }
 
 export interface Poll {

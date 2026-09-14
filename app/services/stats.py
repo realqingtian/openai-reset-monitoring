@@ -5,12 +5,13 @@
 的样本不计入均值，避免除零与偏斜。
 """
 
+from collections import Counter
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from app.core.timeutil import iso_utc
 from app.repositories import tweets as tweet_repo
-from app.schemas import StatsOut
+from app.schemas import DayHitOut, StatsOut
 
 # 采样上限：保留期内命中量级远小于此，仅作防御
 SAMPLE_LIMIT = 500
@@ -32,6 +33,7 @@ async def assemble_stats() -> StatsOut:
     intervals = [(b - a).total_seconds() / 3600 for a, b in zip(times, times[1:]) if (b - a).total_seconds() > 0]
     avg = sum(intervals) / len(intervals) if intervals else None
     last = times[-1] if times else None
+    daily = Counter(t.date().isoformat() for t in times)
     return StatsOut(
         total_hits=len(times),
         hits_30d=sum(1 for t in times if t >= now - timedelta(days=30)),
@@ -40,4 +42,5 @@ async def assemble_stats() -> StatsOut:
         next_expected_at=iso_utc(last + timedelta(hours=avg)) if avg and last else None,
         since=iso_utc(times[0]) if times else None,
         recent_hits=[iso_utc(t) for t in times[-SPARK_POINTS:]],
+        daily_hits=[DayHitOut(day=d, count=n) for d, n in sorted(daily.items())],
     )

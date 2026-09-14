@@ -3,8 +3,9 @@
 import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Poll, Stats, Status, Tweet } from "../../api/types";
-import { ago, esc, fmt, fmtLocal, hl, safeUrl } from "../../utils/format";
+import { ago, esc, fmt, fmtLocal, fmtUTC, hl, localOffsetLabel, safeUrl } from "../../utils/format";
 import { useLang } from "../../i18n/useLang";
+import { SVG_CLOCK } from "../../components/icons";
 import CountUp from "../../components/reactbits/CountUp";
 
 export function LiveStats({ status }: { status: Status | null }) {
@@ -31,26 +32,55 @@ export function LiveStats({ status }: { status: Status | null }) {
   );
 }
 
-/* 迷你时间线：每个命中一根竖条，x 按时间比例分布；样本不足 2 个画不出间隔，直接省略 */
-function RhythmSpark({ times, fmtTs }: { times: string[]; fmtTs: (iso: string) => string }) {
-  if (times.length < 2) return null;
-  const t0 = new Date(times[0]).getTime();
-  const tN = new Date(times[times.length - 1]).getTime();
-  const span = Math.max(1, tN - t0);
+/* GitHub 风格热力图：列=周、行=周一..周日，窗口固定 26 周（命中保留期 180 天）。
+   日期一律按 UTC 日统计，与帖子区 UTC+0 时标口径一致；未来日期留空。 */
+const HEAT_WEEKS = 26;
+
+function RhythmHeatmap({ daily }: { daily: { day: string; count: number }[] }) {
+  const { t } = useTranslation();
+  const counts = new Map(daily.map((d) => [d.day, d.count]));
+  const now = new Date();
+  const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const todayStr = new Date(todayUtc).toISOString().slice(0, 10);
+  // 本周周一（UTC）往前推 25 周，得到首列起点；getUTCDay 周日=0，换算为周一=0
+  const mondayOffset = (new Date(todayUtc).getUTCDay() + 6) % 7;
+  const start = todayUtc - (mondayOffset + (HEAT_WEEKS - 1) * 7) * 86400000;
+  const cells = [];
+  for (let c = 0; c < HEAT_WEEKS; c++) {
+    for (let r = 0; r < 7; r++) {
+      const ts = start + (c * 7 + r) * 86400000;
+      const day = new Date(ts).toISOString().slice(0, 10);
+      if (ts > todayUtc) continue; // 未来日期不画
+      const n = counts.get(day) ?? 0;
+      const level = n === 0 ? 0 : n === 1 ? 1 : n <= 3 ? 2 : n <= 6 ? 3 : 4;
+      cells.push(
+        <rect
+          key={day}
+          x={c + 0.08}
+          y={r + 0.08}
+          width={0.84}
+          height={0.84}
+          rx={0.18}
+          className={`hm-${level}${day === todayStr ? " today" : ""}`}
+        >
+          <title>{n ? t("heatTip", { day, n }) : t("heatTipZero", { day })}</title>
+        </rect>,
+      );
+    }
+  }
   return (
-    <svg className="rhythm-spark" viewBox="0 0 100 28" preserveAspectRatio="none" aria-hidden>
-      <line className="spk-base" x1={0} y1={25.5} x2={100} y2={25.5} />
-      {times.map((ts, i) => {
-        const x = 2 + ((new Date(ts).getTime() - t0) / span) * 96;
-        const last = i === times.length - 1;
-        const h = last ? 12 : 8;
-        return (
-          <rect key={ts} x={+x.toFixed(1)} y={24 - h} width={2.4} height={h} rx={1.2} className={last ? "spk-last" : ""}>
-            <title>{fmtTs(ts)}</title>
-          </rect>
-        );
-      })}
-    </svg>
+    <>
+      <svg className="rhythm-heat" viewBox={`0 0 ${HEAT_WEEKS} 7`} aria-hidden>
+        {cells}
+      </svg>
+      <div className="rhythm-heat-legend">
+        <span>{t("heatLess")}</span>
+        {[1, 2, 3, 4].map((l) => (
+          <span key={l} className={`hm-cell hm-${l}`} />
+        ))}
+        <span>{t("heatMore")}</span>
+      </div>
+    </>
   );
 }
 
@@ -88,14 +118,19 @@ export function RhythmCard({ stats }: { stats: Stats | null }) {
       </div>
       {stats.next_expected_at ? (
         <div className="rhythm-next" title={t("rhythmNextTip")}>
-          <span className="r-key">{t("rhythmNext")}</span> {fmtLocal(stats.next_expected_at)}
+          <span className="r-key">{t("rhythmNext")}</span>
+          <span className="stamp-publish">UTC+0 {fmtUTC(stats.next_expected_at)}</span>
+          <span className="stamp-local">
+            <span dangerouslySetInnerHTML={{ __html: SVG_CLOCK }} />
+            {t("stampLocal", { off: localOffsetLabel(), t: fmtLocal(stats.next_expected_at) })}
+          </span>
         </div>
       ) : (
         <div className="rhythm-next">
           <span className="r-key">{t("rhythmNoForecast")}</span>
         </div>
       )}
-      <RhythmSpark times={stats.recent_hits} fmtTs={(iso) => fmt(iso)} />
+      {stats.daily_hits?.length ? <RhythmHeatmap daily={stats.daily_hits} /> : null}
     </>
   );
 }
@@ -157,7 +192,6 @@ export function Sources({ status }: { status: Status | null }) {
 
   return (
     <>
-      <div className="divider" />
       <div className="sub-title">{t("dataSources")}</div>
       <div id="srcRows">
         {rows.length ? rows : (
