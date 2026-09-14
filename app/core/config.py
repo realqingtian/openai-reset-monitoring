@@ -86,7 +86,7 @@ class MatcherConfig(BaseModel):
 
 class ServiceConfig(BaseModel):
     host: str = "127.0.0.1"
-    port: int = 8080
+    port: int = 8730
 
 
 class TwitterapiIoConfig(BaseModel):
@@ -180,7 +180,7 @@ class Settings(BaseSettings):
     monitor_env: str = "production"
     monitor_site_name: str = "Codex Reset Monitor"
     monitor_host: str = "127.0.0.1"
-    monitor_port: int = 8080
+    monitor_port: int = 8730
     monitor_accounts: str = "thsottiaux"
     monitor_include_replies: bool = True
     monitor_poll_interval: int = 5

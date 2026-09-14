@@ -7,13 +7,13 @@
 # 使用：
 #   1. 确保同目录下有 .env（cp .env.example .env 并填写凭证）
 #   2. docker compose up -d --build
-#   3. 打开 http://localhost:${FRONTEND_PORT:-80}
+#   3. 打开 http://localhost:${FRONTEND_PORT:-8080}
 #   4. 查看日志：docker compose logs -f
 #
 # 说明：
-#   - 对外端口用 .env 里的 FRONTEND_PORT 调整（默认 80）
+#   - 对外端口用 .env 里的 FRONTEND_PORT 调整（默认 8080）
 #   - .env 中的所有变量会注入 backend 容器（MONITOR_HOST/PORT 被强制覆盖为
-#     容器内 0.0.0.0:8080，仅 frontend 容器可访问，不对外发布端口）
+#     容器内 0.0.0.0:8730，仅 frontend 容器可访问，不对外发布端口）
 #   - SQLite 数据库挂载在 ./data，容器重建不丢数据
 #   - 只改了前端：docker compose up -d --build frontend（后端镜像不动）
 
@@ -24,7 +24,7 @@ services:
     container_name: codex-reset-monitor-frontend
     restart: always
     ports:
-      - "${FRONTEND_PORT:-80}:80"
+      - "${FRONTEND_PORT:-8080}:80"
     depends_on:
       backend:
         condition: service_healthy
@@ -36,14 +36,14 @@ services:
     restart: always
     env_file: .env
     environment:
-      # 覆盖 .env 里的同名值：容器内固定监听 0.0.0.0:8080，仅供 frontend 反代
+      # 覆盖 .env 里的同名值：容器内固定监听 0.0.0.0:8730，仅供 frontend 反代
       MONITOR_HOST: 0.0.0.0
-      MONITOR_PORT: "8080"
+      MONITOR_PORT: "8730"
     volumes:
       - ./data:/app/data
     healthcheck:
       # slim 镜像没有 curl，用标准库发健康检查请求
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=5)"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8730/healthz', timeout=5)"]
       interval: 30s
       timeout: 10s
       retries: 3
