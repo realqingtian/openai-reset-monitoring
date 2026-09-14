@@ -12,6 +12,7 @@ from sqlalchemy import event, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
+from app.core.config import Settings
 from app.core.text import content_hash
 from app.core.timeutil import hours_ago_iso, iso_utc
 
@@ -59,8 +60,11 @@ def session_factory() -> AsyncSession:
     return factory()
 
 
-async def init_db():
-    """建表 + 旧库防御迁移 + 日志清理。幂等：对已迁移的库重复执行无改动。"""
+async def init_db(cfg: Optional[Settings] = None):
+    """建表 + 旧库防御迁移 + 日志清理。幂等：对已迁移的库重复执行无改动。
+
+    cfg 提供保留期配置；缺省时用与旧版一致的 30 天（兼容未传 cfg 的调用方）。
+    """
     engine = get_engine()
     async with engine.begin() as conn:
         # 局部导入：models 依赖本模块的 Base，避免循环导入
@@ -103,4 +107,13 @@ async def init_db():
         cutoff = hours_ago_iso(24 * 30)
         await s.execute(text("DELETE FROM polls WHERE ts < :cutoff"), {"cutoff": cutoff})
         await s.execute(text("DELETE FROM notify_log WHERE ts < :cutoff"), {"cutoff": cutoff})
+        # 推文保留分级：未命中随窗口滚动清理（与回扫窗口一致），命中延长保留供节奏统计采样；
+        # matched 可能为 NULL，须 COALESCE 后比较，否则 NULL 行不会落在任何一条清理规则里
+        tweet_days = cfg.tweet_retention_days if cfg else 30
+        hit_days = cfg.hit_retention_days if cfg else 180
+        await s.execute(
+            text("DELETE FROM tweets WHERE COALESCE(matched, 0) != 1 AND created_at < :cutoff"),
+            {"cutoff": hours_ago_iso(24 * tweet_days)},
+        )
+        await s.execute(text("DELETE FROM tweets WHERE created_at < :cutoff"), {"cutoff": hours_ago_iso(24 * hit_days)})
         await s.commit()

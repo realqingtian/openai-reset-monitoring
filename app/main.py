@@ -37,7 +37,7 @@ if CFG.demo:
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
-    await database.init_db()
+    await database.init_db(CFG)
     application.state.cfg = CFG
     application.state.rules = matcher.compile_rules(CFG.matcher.rules)
     application.state.client = httpx.AsyncClient(follow_redirects=True)

@@ -67,6 +67,36 @@ def _sample_tweets(account="thsottiaux"):
             "created_at": at(30),
             "is_reply": 0,
         },  # 超出 24 小时窗口，用于验证窗口过滤
+        {
+            "id": "demo-1006",
+            "account": account,
+            "source": "demo",
+            "text": "Weekly maintenance is done and usage limits have been reset for all Codex users. "
+            "Back to full quotas everywhere.",
+            "url": f"https://x.com/{account}/status/2069000000000000001",
+            "created_at": at(54),
+            "is_reply": 0,
+        },
+        {
+            "id": "demo-1007",
+            "account": account,
+            "source": "demo",
+            "text": "Long week of incident work, so I have reset the Codex usage limits once more. "
+            "Everyone should see fresh quotas now.",
+            "url": f"https://x.com/{account}/status/2066000000000000001",
+            "created_at": at(78),
+            "is_reply": 0,
+        },
+        {
+            "id": "demo-1008",
+            "account": account,
+            "source": "demo",
+            "text": "Reading through your codex CLI feedback threads this weekend. "
+            "Lots of good suggestions about context management.",
+            "url": f"https://x.com/{account}/status/2063000000000000001",
+            "created_at": at(96),
+            "is_reply": 0,
+        },
     ]
 
 

@@ -6,15 +6,16 @@ import { j } from "./api.js";
 import { applyI18n, lang, langMode, onLangChange, t } from "./i18n.js";
 import { applyTheme, mqLight, syncFavicon, themeMode } from "./theme.js";
 import { renderHitList, renderTweetList } from "./feed.js";
-import { renderHero, renderPolls, renderSources, setAllPolls } from "./panel.js";
+import { renderHero, renderPolls, renderRhythm, renderSources, setAllPolls } from "./panel.js";
 
 async function refresh() {
   try {
-    const [st, tweets, hits, polls] = await Promise.all([
-      j("/api/status"), j("/api/tweets"), j("/api/hits?limit=20"), j("/api/polls?limit=200"),
+    const [st, tweets, hits, polls, rhythm] = await Promise.all([
+      j("/api/status"), j("/api/tweets"), j("/api/hits?limit=20"), j("/api/polls?limit=200"), j("/api/stats"),
     ]);
     renderHero(st);
     renderSources(st);
+    renderRhythm(rhythm);
 
     if (tweets.length) renderTweetList($("#tweetList"), tweets);
     else $("#tweetList").innerHTML = `<div class="empty">${t("feedEmpty")}</div>`;

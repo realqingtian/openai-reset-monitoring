@@ -1,7 +1,7 @@
-/* 侧栏与横幅渲染：hero 状态、数据源/通知渠道、检查日志分页。 */
+/* 侧栏与横幅渲染：hero 状态、重置节奏、数据源/通知渠道、检查日志分页。 */
 import { $, animateNumber, esc, replay, safeUrl } from "./dom.js";
 import { lang, t } from "./i18n.js";
-import { ago, fmt } from "./format.js";
+import { ago, fmt, fmtLocal } from "./format.js";
 import { SVG_ALERT, SVG_OK } from "./icons.js";
 
 function renderHero(st) {
@@ -33,6 +33,54 @@ function renderHero(st) {
   animateNumber($("#statHits"), st.hit_count_24h);
   $("#statHits").classList.toggle("alert", hit);
   $("#statInterval").textContent = st.poll_interval_minutes + " min";
+}
+
+/* ---- 重置节奏卡：平均间隔 / 上次命中 / 预期窗口 + 迷你时间线 ---- */
+
+function fmtHours(h) {
+  const zh = lang === "zh";
+  if (h >= 48) return zh ? (h / 24).toFixed(1) + " 天" : (h / 24).toFixed(1) + " d";
+  return zh ? Math.round(h) + " 小时" : Math.round(h) + " h";
+}
+
+function rhythmSpark(times) {
+  // 迷你时间线：每个命中一根竖条，x 按时间比例分布；样本不足 2 个画不出间隔，直接省略
+  if (!times || times.length < 2) return "";
+  const t0 = new Date(times[0]).getTime();
+  const tN = new Date(times[times.length - 1]).getTime();
+  const span = Math.max(1, tN - t0);
+  const bars = times.map((ts, i) => {
+    const x = (2 + ((new Date(ts).getTime() - t0) / span) * 96).toFixed(1);
+    const last = i === times.length - 1;
+    const h = last ? 12 : 8;
+    return `<rect x="${x}" y="${24 - h}" width="2.4" height="${h}" rx="1.2" class="${last ? "spk-last" : ""}"><title>${esc(fmt(ts))}</title></rect>`;
+  });
+  return `<svg class="rhythm-spark" viewBox="0 0 100 28" preserveAspectRatio="none" aria-hidden="true">` +
+    `<line class="spk-base" x1="0" y1="25.5" x2="100" y2="25.5"/>${bars.join("")}</svg>`;
+}
+
+function renderRhythm(st) {
+  const el = $("#rhythmBody");
+  if (!st || !st.total_hits) {
+    el.innerHTML = `<div class="hempty">${t("rhythmEmpty")}</div>`;
+    return;
+  }
+  const rows = [
+    [t("rhythmLast"), ago(st.last_hit_at), st.last_hit_at || ""],
+    [t("rhythmAvg"), st.avg_interval_hours != null ? fmtHours(st.avg_interval_hours) : "—", t("rhythmAvgTip")],
+    [t("rhythmHits30"), String(st.hits_30d), t("rhythmTotal", { n: st.total_hits })],
+  ];
+  let html = `<div class="rhythm-rows">` + rows.map(([k, v, tip]) =>
+    `<div class="r-row"${tip ? ` title="${esc(tip)}"` : ""}><span class="r-key">${esc(k)}</span><span class="r-val">${esc(v)}</span></div>`
+  ).join("") + `</div>`;
+  if (st.next_expected_at) {
+    html += `<div class="rhythm-next" title="${esc(t("rhythmNextTip"))}">` +
+      `<span class="r-key">${esc(t("rhythmNext"))}</span> ${esc(fmtLocal(st.next_expected_at))}</div>`;
+  } else {
+    html += `<div class="rhythm-next"><span class="r-key">${esc(t("rhythmNoForecast"))}</span></div>`;
+  }
+  html += rhythmSpark(st.recent_hits);
+  el.innerHTML = html;
 }
 
 function renderSources(st) {
@@ -94,4 +142,4 @@ $("#pgNext").addEventListener("click", () => { pollPage += 1; renderPolls(); });
 /* refresh（main.js）轮询到新日志后的写入口 */
 function setAllPolls(list) { allPolls = list; }
 
-export { renderHero, renderSources, renderPolls, setAllPolls };
+export { renderHero, renderRhythm, renderSources, renderPolls, setAllPolls };

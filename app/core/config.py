@@ -192,6 +192,9 @@ class Settings(BaseSettings):
     # 数据源自告警：连续 N 轮检查失败后经通知渠道告警（0=关闭）；告警未恢复时每隔多少分钟重发（0=不重发）
     monitor_source_alert_threshold: int = 3
     monitor_source_alert_repeat_minutes: int = 60
+    # 推文保留：未命中随窗口滚动清理，命中延长保留供节奏统计采样（重置节奏卡需要更长的样本）
+    monitor_tweet_retention_days: int = 30
+    monitor_hit_retention_days: int = 180
     demo: bool = False
 
     # -- 数据源凭证（填了即启用） --
@@ -239,6 +242,12 @@ class Settings(BaseSettings):
         # 0 有语义（关闭告警 / 不重发），不能被 _positive 的下限 1 吞掉
         return max(0, int(v))
 
+    @field_validator("monitor_tweet_retention_days", "monitor_hit_retention_days", mode="after")
+    @classmethod
+    def _retention_positive(cls, v):
+        # 保留期没有"关闭"语义，0 会退化成"全删"，钳到至少 1 天
+        return max(1, int(v))
+
     # ---- 派生视图：与旧版 load_config() 返回的 dict 键一一对应 ----
 
     @property
@@ -281,6 +290,14 @@ class Settings(BaseSettings):
     @property
     def source_alert_repeat_minutes(self) -> int:
         return self.monitor_source_alert_repeat_minutes
+
+    @property
+    def tweet_retention_days(self) -> int:
+        return self.monitor_tweet_retention_days
+
+    @property
+    def hit_retention_days(self) -> int:
+        return self.monitor_hit_retention_days
 
     @property
     def notify_lang(self) -> str:
