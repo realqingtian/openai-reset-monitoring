@@ -25,7 +25,10 @@ from app.services import matcher, poller, rescan
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 ROOT = Path(__file__).resolve().parent.parent
-INDEX_PATH = ROOT / "app" / "web" / "index.html"
+# 前端独立工程（frontend/）的构建产物：面板是 React 单页应用，部署前需先构建
+# （cd frontend && bun install && bun run build）；Docker 镜像在构建阶段自动完成
+DIST_DIR = ROOT / "frontend" / "dist"
+DIST_INDEX = DIST_DIR / "index.html"
 
 # 配置在导入期加载一次：docs 开关要赶在 FastAPI 实例化前生效，lifespan 复用同一份
 CFG = config_mod.load_config()
@@ -66,15 +69,25 @@ app = FastAPI(
     redoc_url=_REDOC_URL,
     openapi_url=_OPENAPI_URL,
 )
-app.mount("/static", StaticFiles(directory=ROOT / "app" / "web" / "static"), name="static")
+# 前端构建产物的静态资产（favicon / JS / CSS 均带指纹）；api_router 已先注册，不受通配挂载影响
+if (DIST_DIR / "assets").is_dir():
+    app.mount("/assets", StaticFiles(directory=DIST_DIR / "assets"), name="assets")
 errors_mod.register_exception_handlers(app)
 app.include_router(api_router)
 
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
-    # no-cache：页面更新后浏览器刷新即可拿到最新版，避免旧缓存误导
-    return HTMLResponse(INDEX_PATH.read_text(encoding="utf-8"), headers={"Cache-Control": "no-cache"})
+    # no-cache：页面更新后浏览器刷新即可拿到最新版，避免旧缓存误导。
+    # 未构建前端时给出明确指引（HTTP 503），而不是静默空白页。
+    if DIST_INDEX.exists():
+        return HTMLResponse(DIST_INDEX.read_text(encoding="utf-8"), headers={"Cache-Control": "no-cache"})
+    hint = "面板前端尚未构建：请先执行 cd frontend && bun install && bun run build，然后重启服务。"
+    return HTMLResponse(
+        f"<meta charset='utf-8'><body style=\"font-family:sans-serif;padding:40px\"><h2>503 面板未就绪</h2><p>{hint}</p></body>",
+        status_code=503,
+        headers={"Cache-Control": "no-cache"},
+    )
 
 
 if __name__ == "__main__":
