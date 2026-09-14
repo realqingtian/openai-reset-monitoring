@@ -72,14 +72,24 @@ export function Nav({ status, onCheckDone }: NavProps) {
     };
   }, [langOpen]);
 
-  // 主题段控滑块：跟随激活项位置与宽度（跟随系统项文案更长，宽度不固定）
+  // 主题段控滑块：跟随激活项位置与宽度。用实时几何测量（不做固定偏移），并在窗口尺寸变化时
+  // 重新测量——否则 PC 尺寸下测得的滑块位置在移动端断点（项宽变小）后会溢出段控右边界
   useLayoutEffect(() => {
-    const idx = THEME_ORDER.indexOf(themeMode);
-    const btn = langBox.current?.parentElement?.parentElement?.querySelectorAll<HTMLElement>(".seg-item")[idx];
-    if (thumbRef.current && btn) {
-      thumbRef.current.style.width = `${btn.offsetWidth}px`;
-      thumbRef.current.style.transform = `translateX(${btn.offsetLeft - 3}px)`;
-    }
+    const seg = thumbRef.current?.parentElement;
+    if (!seg) return;
+    const apply = () => {
+      const idx = THEME_ORDER.indexOf(themeMode);
+      const btn = seg.querySelectorAll<HTMLElement>(".seg-item")[idx];
+      if (!thumbRef.current || !btn) return;
+      const segRect = seg.getBoundingClientRect();
+      const btnRect = btn.getBoundingClientRect();
+      thumbRef.current.style.width = `${btnRect.width}px`;
+      // thumb 的 left:0 以 seg 的 padding box 为原点，须扣除边框宽度才是相对同一原点的偏移
+      thumbRef.current.style.transform = `translateX(${btnRect.left - segRect.left - seg.clientLeft}px)`;
+    };
+    apply();
+    window.addEventListener("resize", apply);
+    return () => window.removeEventListener("resize", apply);
   }, [themeMode]);
 
   async function checkNow() {
@@ -160,10 +170,11 @@ export function Nav({ status, onCheckDone }: NavProps) {
               <SystemIcon />
             </button>
           </div>
-          <div className="dropdown" ref={langBox}>
-            <button className="drop-trigger" type="button" aria-haspopup="listbox" aria-expanded={langOpen} onClick={() => setLangOpen((o) => !o)}>
+          {/* open 类必须在父级：CSS 的 .dropdown.open .drop-menu / .chev 都挂在父级上，挂在菜单上会导致菜单永远 opacity:0 */}
+          <div className={langOpen ? "dropdown open" : "dropdown"} ref={langBox}>
+            <button className="drop-trigger" type="button" aria-haspopup="listbox" aria-expanded={langOpen} aria-label={t("langSwitch")} onClick={() => setLangOpen((o) => !o)}>
               <span dangerouslySetInnerHTML={{ __html: SVG_GLOBE }} />
-              <span>{langLabel}</span>
+              <span className="drop-label">{langLabel}</span>
               <span dangerouslySetInnerHTML={{ __html: SVG_CHEV }} />
             </button>
             {langOpen && (
