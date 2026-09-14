@@ -16,6 +16,9 @@
 - 🔀 **双数据源故障切换**：twitterapi.io（第三方抓取 API）与 RSSHub（免费）都填则自动切换，只填一个就用唯一源
 - 🎯 **关键词命中**：参考 Tibo 真实措辞设计的正则规则（中英文），命中词在面板高亮
 - 🔔 **五渠道推送**：飞书 / 钉钉 / 企微 / Bark / Telegram，命中只推一轮、渠道失败自动按渠道补推（成功渠道不重发），重复公告不重复打扰
+- 🩺 **数据源自告警**：数据源连续检查失败自动经全部渠道发告警、恢复后发恢复通知，杜绝"监控悄悄挂了没人知道"
+- 📈 **重置节奏统计**：基于命中历史推算平均重置间隔、上次命中与下次预期窗口，配迷你时间线一目了然
+- 🔐 **可选访问令牌**：配置 `MONITOR_ACCESS_TOKEN` 后面板照常公开查看，「立即检查」等操作需携带令牌
 - 📊 **监控面板**：左侧告警横幅 + 24 小时帖子流；右侧实时统计、数据源、通知渠道、历史命中、检查日志；60 秒自动刷新
 - 🕐 **时间一目了然**：每条帖子同时标注真实发布时间（UTC+0）、换算时间（UTC+8）和"N 小时前发布"，推送消息同样双时区
 - 🔤 **帖子一键翻译**：帖子卡片自带"翻译"按钮，机器翻译为中文（Google 通道为主、MyMemory 兜底，均免 key），译文进 SQLite 缓存，刷新页面不丢失
@@ -74,6 +77,12 @@ bash run.sh
 | `MONITOR_LOOKBACK_HOURS` | `24` | 面板展示与告警窗口（小时） |
 | `MONITOR_INCLUDE_REPLIES` | `true` | 是否同时监控回复（公告偶尔以回复形式补充）；RSSHub 源无法判定回复，面板徽章仅 twitterapi.io 有 |
 | `MONITOR_HOST` / `MONITOR_PORT` | `127.0.0.1` / `8730` | 面板服务监听地址（示例配置为 `0.0.0.0:8080`） |
+| `MONITOR_ACCESS_TOKEN` | 空 | 可选访问令牌：配置后「立即检查」「发送测试通知」需携带（`X-Access-Token` 或 `Authorization: Bearer`），面板查看保持公开；留空不启用 |
+| `MONITOR_PUBLIC_URL` | 空 | 可选对外地址；配置后数据源自告警消息会附上面板链接 |
+| `MONITOR_SOURCE_ALERT_THRESHOLD` | `3` | 数据源自告警：连续多少轮检查全部失败后经渠道告警（`0` 关闭） |
+| `MONITOR_SOURCE_ALERT_REPEAT_MINUTES` | `60` | 告警未恢复时的重发间隔分钟数（`0` 不重发） |
+| `MONITOR_TWEET_RETENTION_DAYS` | `30` | 未命中推文保留天数（滚动清理） |
+| `MONITOR_HIT_RETENTION_DAYS` | `180` | 命中推文保留天数（重置节奏统计的数据源） |
 | `TWITTERAPI_IO_KEY` | 空 | twitterapi.io API Key，留空停用该源 |
 | `RSSHUB_BASE_URL` | 空 | RSSHub 实例地址，留空停用该源 |
 | `RSSHUB_ROUTE` | `twitter/user` | RSSHub 路由 |
@@ -210,11 +219,13 @@ launchctl load ~/Library/LaunchAgents/com.openai_reset_monitoring.plist
 | `GET /api/tweets?hours=24` | 时间窗口内的帖子 |
 | `GET /api/hits` | 历史命中记录 |
 | `GET /api/polls` | 检查日志 |
+| `GET /api/stats` | 重置节奏统计（平均间隔 / 上次命中 / 预期窗口） |
 | `GET /api/translate?id=…&to=zh` | 翻译指定帖子（`to` 支持 `zh` / `en`，带 SQLite 缓存） |
 | `POST /api/poll-now` | 立即触发一次检查 |
 | `POST /api/test-notify` | 向所有已配置渠道发测试消息 |
 | `GET /healthz` | 健康检查 |
 
+配置 `MONITOR_ACCESS_TOKEN` 后，`POST /api/poll-now` 与 `POST /api/test-notify` 需携带令牌（`X-Access-Token` 或 `Authorization: Bearer`），其余接口保持公开。
 所有 `/api/*` 返回统一包体 `{code, data, message}`（成功 `code=200`）；异常时为 `{code, message, errors}`，HTTP 状态码与 `code` 一致。`/healthz` 例外，原样返回 `{"ok": true}`。响应出参为 Pydantic 模型，`/docs`（及 `/redoc`、`/openapi.json`）可查看 OpenAPI 结构，仅在 `MONITOR_ENV=debug` 环境开放，生产环境不注册这些路径。
 
 ## 行为细节
@@ -225,7 +236,9 @@ launchctl load ~/Library/LaunchAgents/com.openai_reset_monitoring.plist
   其中 24 小时内发布且从未推送过的错过公告会补推，更早的只补记录不再推送，已推送或有渠道尝试记录的不重发
 - **不重复打扰**：同一公告被发布多条推文（内容高度相似）只推第一条
 - **时延**：轮询间隔默认 5 分钟。重置公告从发推到生效通常有几小时窗口，5 分钟足够；调小会更及时，抓取费用相应增加
-- **数据保留**：帖子永久保留在 `data/monitor.db`（体量很小），历史命中跨窗口可见；检查日志只保留 30 天
+- **自告警**：数据源连续 `MONITOR_SOURCE_ALERT_THRESHOLD`（默认 3）轮检查全部失败时，经全部已配置渠道发告警，恢复后发恢复通知；
+  告警状态存库，重启后既不重复打扰也不漏发恢复；未配置任何数据源不算失败，DEMO 模式不告警也不真实推送
+- **数据保留**：未命中推文保留 30 天滚动清理，命中推文保留 180 天（供"重置节奏"统计采样，两者均可配置）；检查日志只保留 30 天
 
 ## 项目结构
 

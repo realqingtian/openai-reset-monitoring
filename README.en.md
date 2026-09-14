@@ -21,6 +21,12 @@ alert on the dashboard and pushes notifications to Feishu / DingTalk / WeCom / B
   highlighted on the dashboard
 - 🔔 **Five push channels**: Feishu / DingTalk / WeCom / Bark / Telegram; each hit pushes at most once per channel,
   failed channels are retried automatically (succeeded ones are never re-sent), duplicate announcements never disturb twice
+- 🩺 **Source self-alerting**: when a data source keeps failing, all configured channels get an alert, and a recovery
+  notice follows once polling is healthy again — no more silently dead monitors
+- 📈 **Reset rhythm stats**: average interval, last hit and the next expected window derived from hit history,
+  with a mini timeline
+- 🔐 **Optional access token**: with `MONITOR_ACCESS_TOKEN` set, the dashboard stays publicly viewable while actions
+  like "Check now" require the token
 - 📊 **Dashboard**: alert banner + 24-hour post feed on the left; live stats, sources, channels, hit history and
   check logs on the right; auto refresh every 60 seconds
 - 🕐 **Timestamps at a glance**: every post shows the real publish time (UTC+0), the converted time (UTC+8) and
@@ -87,6 +93,12 @@ How to obtain every item is documented in the comments of `.env.example`.
 | `MONITOR_POLL_INTERVAL` | `5` | polling interval (minutes) |
 | `MONITOR_LOOKBACK_HOURS` | `24` | dashboard & alert window (hours) |
 | `MONITOR_HOST` / `MONITOR_PORT` | `127.0.0.1` / `8730` | dashboard listen address (the sample config uses `0.0.0.0:8080`) |
+| `MONITOR_ACCESS_TOKEN` | empty | optional access token: with it set, "Check now" and "Send test notification" require it (`X-Access-Token` or `Authorization: Bearer`); viewing stays public; empty disables auth |
+| `MONITOR_PUBLIC_URL` | empty | optional public URL; when set, source alerts include a panel link |
+| `MONITOR_SOURCE_ALERT_THRESHOLD` | `3` | source self-alert: alert all channels after this many consecutive fully-failed cycles (`0` disables) |
+| `MONITOR_SOURCE_ALERT_REPEAT_MINUTES` | `60` | minutes between repeat alerts while still down (`0` never repeats) |
+| `MONITOR_TWEET_RETENTION_DAYS` | `30` | retention days for non-hit posts (rolling cleanup) |
+| `MONITOR_HIT_RETENTION_DAYS` | `180` | retention days for hit posts (feeds the reset rhythm stats) |
 | `TWITTERAPI_IO_KEY` | empty | twitterapi.io API key; empty disables the source |
 | `RSSHUB_BASE_URL` | empty | RSSHub instance URL; empty disables the source |
 | `RSSHUB_ROUTE` | `twitter/user` | RSSHub route |
@@ -214,11 +226,14 @@ launchctl load ~/Library/LaunchAgents/com.openai_reset_monitoring.plist
 | `GET /api/tweets?hours=24` | posts within the time window |
 | `GET /api/hits` | hit history |
 | `GET /api/polls` | check logs |
+| `GET /api/stats` | reset rhythm stats (avg interval / last hit / expected window) |
 | `GET /api/translate?id=…&to=zh` | translate a post (`to` supports `zh` / `en`, cached in SQLite) |
 | `POST /api/poll-now` | trigger a check immediately |
 | `POST /api/test-notify` | send a test message to all configured channels |
 | `GET /healthz` | health check |
 
+With `MONITOR_ACCESS_TOKEN` set, `POST /api/poll-now` and `POST /api/test-notify` require the token
+(`X-Access-Token` or `Authorization: Bearer`); every other endpoint stays public.
 All `/api/*` responses share the envelope `{code, data, message}` (`code=200` on success); errors use
 `{code, message, errors}` with the HTTP status matching `code`. `/healthz` is the exception and returns
 `{"ok": true}` verbatim. Responses are Pydantic models; `/docs` (plus `/redoc` and `/openapi.json`) exposes the
@@ -233,8 +248,12 @@ OpenAPI schema and is available only with `MONITOR_ENV=debug` — production doe
   first one
 - **Latency**: the default poll interval is 5 minutes. Reset announcements usually land hours before they take
   effect, so 5 minutes is enough; lowering it gets you there sooner and costs more per fetch
-- **Retention**: posts are kept forever in `data/monitor.db` (tiny), so hit history stays visible across windows;
-  check logs are kept for 30 days
+- **Self-alerting**: after `MONITOR_SOURCE_ALERT_THRESHOLD` (default 3) consecutive fully-failed cycles, all
+  configured channels receive an alert, followed by a recovery notice once healthy; alert state is persisted, so
+  restarts neither re-spam nor miss the recovery. Having no source configured doesn't count as failure, and DEMO
+  mode neither alerts nor really pushes
+- **Retention**: non-hit posts are pruned after 30 days while hits are kept 180 days (feeding the reset rhythm
+  stats; both configurable); check logs are kept for 30 days
 
 ## Project structure
 
