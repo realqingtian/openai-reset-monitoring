@@ -97,7 +97,7 @@ frontend/         # React 独立前端工程（Vite + React 19 + TS，bun 管理
 
 ## 已知取舍（禁止「顺手优化」）
 
-- 回复监控当前临时关闭（`.env` 显式 `MONITOR_INCLUDE_REPLIES=false`；代码默认 true，注释掉无效）：自建 RSSHub 的 `includeReplies=true` 路由因 X 反爬拦截 `UserTweetsAndReplies` 恒返回空 feed（上游 DIYgod/RSSHub#22964，修复 PR #22967 合并后拉新镜像、改回 true 并 revert 面板「隐藏回复」过滤的移除提交）。恢复后注意：twitterapi.io 增量翻页随之 1→2 页（防回复风暴刷过单页窗口）；RSSHub 无法判定回复（`is_reply` 存 NULL 无徽章）；回复命中同样推送。
+- 回复监控默认关闭（2026-09-14 起代码默认 false，显式 `MONITOR_INCLUDE_REPLIES=true` 才开启）：自建 RSSHub 的 `includeReplies=true` 路由因 X 反爬拦截 `UserTweetsAndReplies` 恒返回空 feed（上游 DIYgod/RSSHub#22964）。上游修复（PR #22967）合并并拉新镜像后，设 `MONITOR_INCLUDE_REPLIES=true` 即可恢复（面板「隐藏回复」过滤已移除，无需再 revert）。开启后注意：twitterapi.io 增量翻页随之 1→2 页（防回复风暴刷过单页窗口）；RSSHub 无法判定回复（`is_reply` 存 NULL 无徽章）；回复命中同样推送。
 - 检查日志面板固定取最近 200 条（`/api/polls?limit=200`，API 上限 200），数据库保留 30 天；徽章有悬停说明。
 - 数据源自告警（`services/source_watch.py`）：连续 `MONITOR_SOURCE_ALERT_THRESHOLD`（默认 3）轮检查全部失败经渠道告警，恢复后发恢复通知；重发间隔 `MONITOR_SOURCE_ALERT_REPEAT_MINUTES`（默认 60，0 不重发）。状态存 `app_state` 表（重启不重复打扰、不漏发恢复）；未配置任何源不算失败；DEMO 模式整体跳过。
 - 推文保留分级：未命中 30 天滚动清理、命中 180 天（`MONITOR_TWEET/HIT_RETENTION_DAYS`），供「重置节奏」统计卡（`/api/stats`）采样；此前推文从不清理，旧库首次升级会补执行清理。

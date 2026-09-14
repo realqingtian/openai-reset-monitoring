@@ -174,7 +174,7 @@ cd frontend && bun run build         # 前端：类型检查 + 构建
 | `MONITOR_ACCOUNTS` | `thsottiaux` | 监控的 X 账号，逗号分隔，不带 @ |
 | `MONITOR_POLL_INTERVAL` | `5` | 轮询间隔（分钟） |
 | `MONITOR_LOOKBACK_HOURS` | `24` | 面板展示与告警窗口（小时） |
-| `MONITOR_INCLUDE_REPLIES` | `true` | 是否同时监控回复（公告偶尔以回复形式补充）；RSSHub 源无法判定回复，面板徽章仅 twitterapi.io 有 |
+| `MONITOR_INCLUDE_REPLIES` | `false` | 是否同时监控回复（公告偶尔以回复形式补充）；默认不监控，显式设 `true` 开启。RSSHub 源无法判定回复，面板徽章仅 twitterapi.io 有 |
 | `TWITTERAPI_IO_KEY` | 空 | twitterapi.io API Key，留空停用该源 |
 | `RSSHUB_BASE_URL` | 空 | RSSHub 实例地址，留空停用该源 |
 | `RSSHUB_ROUTE` | `twitter/user` | RSSHub 路由 |

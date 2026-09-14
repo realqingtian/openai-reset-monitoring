@@ -196,7 +196,7 @@ How to obtain every item is documented in the comments of `.env.example`.
 | `MONITOR_ACCOUNTS` | `thsottiaux` | X accounts to watch, comma separated, without @ |
 | `MONITOR_POLL_INTERVAL` | `5` | polling interval (minutes) |
 | `MONITOR_LOOKBACK_HOURS` | `24` | dashboard & alert window (hours) |
-| `MONITOR_INCLUDE_REPLIES` | `true` | also watch replies (announcements sometimes arrive as replies); RSSHub cannot detect replies, so the badge only exists for twitterapi.io |
+| `MONITOR_INCLUDE_REPLIES` | `false` | also watch replies (announcements sometimes arrive as replies); off by default, set to `true` to enable. RSSHub cannot detect replies, so the badge only exists for twitterapi.io |
 | `TWITTERAPI_IO_KEY` | empty | twitterapi.io API key; empty disables the source |
 | `RSSHUB_BASE_URL` | empty | RSSHub instance URL; empty disables the source |
 | `RSSHUB_ROUTE` | `twitter/user` | RSSHub route |
