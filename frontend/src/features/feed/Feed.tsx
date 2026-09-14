@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError, j } from "../../api/client";
 import type { Tweet } from "../../api/types";
+import { useAuth } from "../../context/AuthContext";
+import { useToast } from "../../context/ToastContext";
 import { SVG_BOLT, SVG_CLOCK, SVG_LANG, SVG_LINK, SVG_RSS } from "../../components/icons";
 import { useLang } from "../../i18n/useLang";
 import { esc, fmtLocal, fmtUTC, ago as agoText, hl, localOffsetLabel, localTZName, safeUrl } from "../../utils/format";
@@ -34,6 +36,8 @@ function looksLike(text: string, lang: "zh" | "en"): boolean {
 function TweetCard({ tw, isNew, freshIdx }: { tw: Tweet; isNew: boolean; freshIdx: number }) {
   const { t } = useTranslation();
   const lang = useLang();
+  const auth = useAuth();
+  const { toast } = useToast();
   const [, setTick] = useState(0);
   const [errHint, setErrHint] = useState("");
   const meta = SOURCE_META[tw.source] || { label: tw.source, cls: "demo", icon: SVG_RSS };
@@ -51,14 +55,23 @@ function TweetCard({ tw, isNew, freshIdx }: { tw: Tweet; isNew: boolean; freshId
       setTick((n) => n + 1);
       const to = lang === "zh" ? "zh" : "en";
       try {
-        const data = await j<{ text?: string; provider?: string; same?: boolean }>(
-          `/api/translate?id=${encodeURIComponent(tw.id)}&to=${to}`,
+        // 与立即检查一致：401 时 guard 引导登录，登录成功自动重试
+        const data = await auth.guard(() =>
+          j<{ text?: string; provider?: string; same?: boolean }>(
+            `/api/translate?id=${encodeURIComponent(tw.id)}&to=${to}`,
+          ),
         );
         transCache.set(tw.id, { open: true, loading: false, text: data.text, provider: data.provider, same: data.same });
       } catch (e) {
         const authFail = e instanceof ApiError && e.auth;
-        transCache.set(tw.id, { open: true, loading: false, error: true });
-        if (!authFail) setErrHint(t("trFail"));
+        if (authFail) {
+          // 用户取消登录或重试仍被拒：收起译文块并提示，不误报「翻译失败」
+          transCache.set(tw.id, { open: false, loading: false });
+          toast(t("toastNeedLogin"), false);
+        } else {
+          transCache.set(tw.id, { open: true, loading: false, error: true });
+          setErrHint(t("trFail"));
+        }
       }
     }
     setTick((n) => n + 1);
