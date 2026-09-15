@@ -14,11 +14,11 @@ if [ ! -f .env ] && [ -f .env.example ]; then
 fi
 
 if command -v uv >/dev/null 2>&1; then
-  echo "==> 使用 uv 管理环境"
-  [ -d .venv ] || uv venv .venv
-  uv pip install -q -r requirements.txt --python .venv/bin/python
+  echo "==> 使用 uv 管理环境（uv sync，依赖版本以 uv.lock 为准）"
+  # --inexact：只补齐不删包，保留 .venv 里 PyCharm / 手动安装的额外包（用户自管环境）
+  uv sync --inexact
 elif command -v python3 >/dev/null 2>&1; then
-  echo "==> 未检测到 uv，使用 python3 venv + pip"
+  echo "==> 未检测到 uv，使用 python3 venv + pip（依赖清单退回 requirements.txt）"
   [ -d .venv ] || python3 -m venv .venv
   . .venv/bin/activate
   pip install -q -r requirements.txt

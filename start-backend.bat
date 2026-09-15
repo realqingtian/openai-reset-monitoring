@@ -27,9 +27,9 @@ echo    - Python 安装：https://www.python.org/downloads/
 exit /b 1
 
 :uv
-echo ==^> 使用 uv 管理环境
-if not exist .venv uv venv .venv
-uv pip install -q -r requirements.txt --python .venv\Scripts\python.exe
+echo ==^> 使用 uv 管理环境，依赖版本以 uv.lock 为准
+rem --inexact：只补齐不删包，保留 .venv 里手动安装的额外包
+uv sync --inexact
 goto :run
 
 :pip
