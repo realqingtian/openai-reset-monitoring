@@ -1,4 +1,4 @@
-/* 信息流：24h 帖子卡片（来源徽标、命中高亮、双时区时间戳、按需翻译）。 */
+/* 信息流：24h 帖子卡片（来源徽标、命中高亮、头部行时间、按需翻译）。 */
 
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -7,9 +7,11 @@ import type { Tweet } from "../../api/types";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import { AccountAvatar } from "../../components/AccountAvatar";
-import { SVG_BOLT, SVG_CLOCK, SVG_LANG, SVG_LINK, SVG_RSS } from "../../components/icons";
+import { SVG_BOLT, SVG_LANG, SVG_LINK, SVG_RSS } from "../../components/icons";
+import { TipBubble } from "../../components/TipBubble";
+import { useTipPos } from "../../hooks/useTipPos";
 import { useLang } from "../../i18n/useLang";
-import { esc, fmtLocal, fmtUTC, ago as agoText, hl, localOffsetLabel, localTZName, safeUrl } from "../../utils/format";
+import { esc, fmtLocal, fmtUTC, ago as agoText, hl, localOffsetLabel, safeUrl } from "../../utils/format";
 
 const SOURCE_META: Record<string, { label: string; cls: string; icon: string }> = {
   rsshub: { label: "RSSHub", cls: "rss", icon: SVG_RSS },
@@ -41,6 +43,7 @@ function TweetCard({ tw, isNew, freshIdx }: { tw: Tweet; isNew: boolean; freshId
   const { toast } = useToast();
   const [, setTick] = useState(0);
   const [errHint, setErrHint] = useState("");
+  const timeTip = useTipPos();
   const meta = SOURCE_META[tw.source] || { label: tw.source, cls: "demo", icon: SVG_RSS };
   const tr = transCache.get(tw.id);
   const canTrans = !looksLike(tw.text, lang);
@@ -99,16 +102,8 @@ function TweetCard({ tw, isNew, freshIdx }: { tw: Tweet; isNew: boolean; freshId
       style={isNew ? { animationDelay: `${Math.min(freshIdx * 70, 350)}ms` } : undefined}
     >
       <span className="tnode" aria-hidden />
-      <div className="tstamps">
-        <span className="stamp-publish" title={t("pubTip")}>{esc(t("stampPub", { t: fmtUTC(tw.created_at) }))}</span>
-        <span className="stamp-local" title={t("localTip", { tz: localTZName, off: localOffsetLabel() })}>
-          <span dangerouslySetInnerHTML={{ __html: SVG_CLOCK }} />
-          {esc(t("stampLocal", { off: localOffsetLabel(), t: fmtLocal(tw.created_at) }))}
-        </span>
-        <span className="pill" title={t("agoTip")}>{esc(t("stampAgo", { ago: agoText(tw.created_at, lang) }))}</span>
-      </div>
       <div className="tcard">
-        {/* 头部行（方案A）：头像 + 昵称 + @handle；第三方数据用 JSX 文本插值，React 自动转义等价于 esc() */}
+        {/* 头部行（方案A）：头像 + 昵称 + @handle + 右侧相对时间；第三方数据用 JSX 文本插值，React 自动转义等价于 esc() */}
         <div className="ta-head">
           <AccountAvatar handle={tw.account} name={tw.author_name} avatar={tw.author_avatar} />
           <div className="ta-who">
@@ -121,7 +116,13 @@ function TweetCard({ tw, isNew, freshIdx }: { tw: Tweet; isNew: boolean; freshId
               <span className="tname">@{tw.account}</span>
             )}
           </div>
+          {/* 相对时间为 X 式主显示；悬停气泡给完整双时区秒级（即时 portal，代替原生 title） */}
+          <span className="t-time" {...timeTip.bind}>{agoText(tw.created_at, lang)}</span>
         </div>
+        <TipBubble pos={timeTip.pos}>
+          <div>UTC+0 {fmtUTC(tw.created_at)}</div>
+          <div>{localOffsetLabel()} {fmtLocal(tw.created_at)}</div>
+        </TipBubble>
         <div className="t-pills">{pills}</div>
         <p className="entry-text" dangerouslySetInnerHTML={{ __html: hl(tw.text, tw.matched_terms) }} />
         {tr?.open && (
