@@ -534,14 +534,16 @@ html.theming .nav-inner, html.theming .toast {
   transition: border-color 0.5s var(--ease), box-shadow 0.5s var(--ease);
 }
 .tentry.hit .tnode { border-color: var(--hit-accent); box-shadow: 0 0 12px var(--hit-accent-glow); }
+/* 帖子卡：双层嵌框（.card shell + .card-core，与 Hero/侧栏卡片同款），此处只做信息流的尺寸与状态微调 */
 .tcard {
-  background: var(--core-grad);
-  border: 1px solid var(--core-line); border-radius: 14px;
-  box-shadow: var(--core-inset); padding: 13px 17px;
-  transition: border-color 0.4s var(--ease), transform 0.4s var(--ease), box-shadow 0.4s var(--ease);
+  /* 覆写 .card 的 transition：补 transform 供悬停位移，保留背景/描边过渡 */
+  transition: background-color 0.45s var(--ease), border-color 0.4s var(--ease), transform 0.4s var(--ease);
 }
-.tentry:hover .tcard { border-color: var(--line-strong); transform: translateX(3px); box-shadow: var(--entry-hover-shadow); }
-.tentry.hit .tcard { border-color: var(--hit-border); background: var(--hit-core-grad); box-shadow: var(--hit-glow); }
+.tcard-core { padding: 15px 18px; }
+.tentry:hover .tcard { transform: translateX(3px); }
+.tentry:hover .tcard-core { border-color: var(--line-strong); }
+.tentry.hit .tcard { border-color: var(--hit-border); }
+.tentry.hit .tcard-core { background: var(--hit-core-grad); border-color: var(--hit-border); box-shadow: var(--hit-glow); }
 .tentry.new .tcard { animation: entryIn 0.7s var(--ease) both; }
 @keyframes entryIn {
   from { opacity: 0; transform: translateY(14px) scale(0.985); }

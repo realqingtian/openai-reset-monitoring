@@ -102,52 +102,55 @@ function TweetCard({ tw, isNew, freshIdx }: { tw: Tweet; isNew: boolean; freshId
       style={isNew ? { animationDelay: `${Math.min(freshIdx * 70, 350)}ms` } : undefined}
     >
       <span className="tnode" aria-hidden />
-      <div className="tcard">
-        {/* 头部行（方案A）：头像 + 昵称 + @handle + 右侧相对时间；第三方数据用 JSX 文本插值，React 自动转义等价于 esc() */}
-        <div className="ta-head">
-          <AccountAvatar handle={tw.account} name={tw.author_name} avatar={tw.author_avatar} />
-          <div className="ta-who">
-            {tw.author_name ? (
-              <>
-                <span className="tname">{tw.author_name}</span>
-                <span className="thandle">@{tw.account}</span>
-              </>
-            ) : (
-              <span className="tname">@{tw.account}</span>
-            )}
+      {/* 双层嵌框卡：与 Hero/侧栏卡片同款（.card shell + .card-core），.tcard/.tcard-core 只做信息流的尺寸与状态微调 */}
+      <div className="card tcard">
+        <div className="card-core tcard-core">
+          {/* 头部行（方案A）：头像 + 昵称 + @handle + 右侧相对时间；第三方数据用 JSX 文本插值，React 自动转义等价于 esc() */}
+          <div className="ta-head">
+            <AccountAvatar handle={tw.account} name={tw.author_name} avatar={tw.author_avatar} />
+            <div className="ta-who">
+              {tw.author_name ? (
+                <>
+                  <span className="tname">{tw.author_name}</span>
+                  <span className="thandle">@{tw.account}</span>
+                </>
+              ) : (
+                <span className="tname">@{tw.account}</span>
+              )}
+            </div>
+            {/* 相对时间为 X 式主显示；悬停气泡给完整双时区秒级（即时 portal，代替原生 title） */}
+            <span className="t-time" {...timeTip.bind}>{agoText(tw.created_at, lang)}</span>
           </div>
-          {/* 相对时间为 X 式主显示；悬停气泡给完整双时区秒级（即时 portal，代替原生 title） */}
-          <span className="t-time" {...timeTip.bind}>{agoText(tw.created_at, lang)}</span>
-        </div>
-        <TipBubble pos={timeTip.pos}>
-          <div>UTC+0 {fmtUTC(tw.created_at)}</div>
-          <div>{localOffsetLabel()} {fmtLocal(tw.created_at)}</div>
-        </TipBubble>
-        <div className="t-pills">{pills}</div>
-        <p className="entry-text" dangerouslySetInnerHTML={{ __html: hl(tw.text, tw.matched_terms) }} />
-        {tr?.open && (
-          <div className="entry-tr">
-            {tr.loading && <span className="tr-meta">{t("translating")}</span>}
-            {!tr.loading && tr.same && <span className="tr-meta">{t("trSame")}</span>}
-            {!tr.loading && tr.error && <span className="tr-meta">{errHint || t("trFail")}</span>}
-            {!tr.loading && tr.text && (
-              <>
-                <p className="tr-text">{tr.text}</p>
-                <span className="tr-meta">{t("trTag", { p: tr.provider ?? "" })}</span>
-              </>
-            )}
-          </div>
-        )}
-        <div className="entry-links">
-          <a className="entry-link" href={safeUrl(tw.url)} target="_blank" rel="noopener">
-            {t("viewOnX")} <span dangerouslySetInnerHTML={{ __html: SVG_LINK }} />
-          </a>
-          {canTrans && (
-            <button className="entry-act" type="button" onClick={() => void toggleTranslate()}>
-              <span dangerouslySetInnerHTML={{ __html: SVG_LANG }} />
-              <span className="act-label">{tr?.open ? t("hideTrans") : t("translate")}</span>
-            </button>
+          <TipBubble pos={timeTip.pos}>
+            <div>UTC+0 {fmtUTC(tw.created_at)}</div>
+            <div>{localOffsetLabel()} {fmtLocal(tw.created_at)}</div>
+          </TipBubble>
+          <div className="t-pills">{pills}</div>
+          <p className="entry-text" dangerouslySetInnerHTML={{ __html: hl(tw.text, tw.matched_terms) }} />
+          {tr?.open && (
+            <div className="entry-tr">
+              {tr.loading && <span className="tr-meta">{t("translating")}</span>}
+              {!tr.loading && tr.same && <span className="tr-meta">{t("trSame")}</span>}
+              {!tr.loading && tr.error && <span className="tr-meta">{errHint || t("trFail")}</span>}
+              {!tr.loading && tr.text && (
+                <>
+                  <p className="tr-text">{tr.text}</p>
+                  <span className="tr-meta">{t("trTag", { p: tr.provider ?? "" })}</span>
+                </>
+              )}
+            </div>
           )}
+          <div className="entry-links">
+            <a className="entry-link" href={safeUrl(tw.url)} target="_blank" rel="noopener">
+              {t("viewOnX")} <span dangerouslySetInnerHTML={{ __html: SVG_LINK }} />
+            </a>
+            {canTrans && (
+              <button className="entry-act" type="button" onClick={() => void toggleTranslate()}>
+                <span dangerouslySetInnerHTML={{ __html: SVG_LANG }} />
+                <span className="act-label">{tr?.open ? t("hideTrans") : t("translate")}</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </article>
