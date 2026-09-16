@@ -43,6 +43,7 @@ class StatusOut(BaseModel):
     access_protected: bool = False  # 是否启用访问令牌（启用后写接口需携带令牌，读接口保持公开）
     env_mode: str
     site_name: Optional[str] = None
+    avatar_mirror: str = ""  # 头像镜像前缀（MONITOR_AVATAR_MIRROR），空=前端直连原图
     config_file: Optional[str] = None
     accounts: list[str]
     poll_interval_minutes: int

@@ -16,6 +16,14 @@ export function safeUrl(u: string | null | undefined): string {
   return /^https?:\/\//i.test(String(u || "")) ? String(u) : "#";
 }
 
+/* 头像原图 URL → 实际加载地址：配置镜像前缀时整体编码拼接（墙内经镜像代抓），未配置时直连 */
+export function avatarSrc(avatar: string | null | undefined, mirror?: string | null): string {
+  const raw = safeUrl(avatar || "");
+  if (!raw) return "";
+  const prefix = (mirror || "").trim();
+  return prefix ? prefix + encodeURIComponent(raw) : raw;
+}
+
 export function hl(text: string | null | undefined, terms: string[] | null | undefined): string {
   let html = esc(text);
   (terms || []).forEach((term) => {

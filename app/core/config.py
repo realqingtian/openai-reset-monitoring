@@ -180,6 +180,9 @@ class Settings(BaseSettings):
     # -- 服务 --
     monitor_env: str = "production"
     monitor_site_name: str = "Codex Reset Monitor"
+    # 头像镜像前缀：墙内部署时浏览器直连 pbs.twimg.com 不可达，配置后前端把头像原图 URL
+    # 编码拼到该前缀后（如 https://wsrv.nl/?url=）；留空=直连原图
+    monitor_avatar_mirror: str = ""
     monitor_host: str = "127.0.0.1"
     monitor_port: int = 8730
     monitor_accounts: str = "thsottiaux"
@@ -292,6 +295,10 @@ class Settings(BaseSettings):
     @property
     def site_name(self) -> str:
         return self.monitor_site_name
+
+    @property
+    def avatar_mirror(self) -> str:
+        return self.monitor_avatar_mirror.strip()
 
     @property
     def config_file(self) -> str:

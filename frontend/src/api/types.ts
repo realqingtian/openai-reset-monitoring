@@ -45,6 +45,8 @@ export interface Status {
   access_protected: boolean;
   env_mode: string;
   site_name?: string | null;
+  /* 头像镜像前缀（MONITOR_AVATAR_MIRROR）：非空时头像原图 URL 编码拼到其后，绕过墙内直连失败 */
+  avatar_mirror?: string | null;
   config_file?: string | null;
   accounts: string[];
   poll_interval_minutes: number;

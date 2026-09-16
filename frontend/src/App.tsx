@@ -72,7 +72,7 @@ function Panel() {
         <div className="dash">
           <div className="main">
             <Hero status={status} />
-            <Feed tweets={tweets} />
+            <Feed tweets={tweets} mirror={status?.avatar_mirror} />
           </div>
           <aside className="rail">
             <div className="card">

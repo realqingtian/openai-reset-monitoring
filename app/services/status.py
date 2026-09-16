@@ -25,6 +25,7 @@ async def assemble_status(cfg, rules: list[RuleConfig]) -> StatusOut:
         access_protected=cfg.access_protected,
         env_mode=cfg.env_mode,
         site_name=cfg.site_name,
+        avatar_mirror=cfg.avatar_mirror,
         config_file=cfg.config_file,
         accounts=cfg.accounts,
         poll_interval_minutes=cfg.poll_interval_minutes,

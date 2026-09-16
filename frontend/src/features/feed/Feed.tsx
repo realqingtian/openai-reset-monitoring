@@ -36,7 +36,7 @@ function looksLike(text: string, lang: "zh" | "en"): boolean {
   return !text.split("").some((c) => c.charCodeAt(0) > 0xff);
 }
 
-function TweetCard({ tw, isNew, freshIdx }: { tw: Tweet; isNew: boolean; freshIdx: number }) {
+function TweetCard({ tw, isNew, freshIdx, mirror }: { tw: Tweet; isNew: boolean; freshIdx: number; mirror?: string | null }) {
   const { t } = useTranslation();
   const lang = useLang();
   const auth = useAuth();
@@ -107,7 +107,7 @@ function TweetCard({ tw, isNew, freshIdx }: { tw: Tweet; isNew: boolean; freshId
         <div className="card-core tcard-core">
           {/* 头部行（方案A）：头像 + 昵称 + @handle + 右侧相对时间；第三方数据用 JSX 文本插值，React 自动转义等价于 esc() */}
           <div className="ta-head">
-            <AccountAvatar handle={tw.account} name={tw.author_name} avatar={tw.author_avatar} />
+            <AccountAvatar handle={tw.account} name={tw.author_name} avatar={tw.author_avatar} mirror={mirror} />
             <div className="ta-who">
               {tw.author_name ? (
                 <>
@@ -162,7 +162,7 @@ function TweetCard({ tw, isNew, freshIdx }: { tw: Tweet; isNew: boolean; freshId
 const seenIds = new Set<string>();
 const SEEN_FIRST = "__first_render__";
 
-export function Feed({ tweets }: { tweets: Tweet[] }) {
+export function Feed({ tweets, mirror }: { tweets: Tweet[]; mirror?: string | null }) {
   const { t } = useTranslation();
   const isFirstRender = !seenIds.has(SEEN_FIRST);
   const freshIds = isFirstRender
@@ -185,7 +185,7 @@ export function Feed({ tweets }: { tweets: Tweet[] }) {
         <div id="tweetList" className="tlist">
           {tweets.length ? (
             tweets.map((tw) => (
-              <TweetCard key={tw.id} tw={tw} isNew={freshIds.has(tw.id)} freshIdx={freshIdx.get(tw.id) ?? 0} />
+              <TweetCard key={tw.id} tw={tw} isNew={freshIds.has(tw.id)} freshIdx={freshIdx.get(tw.id) ?? 0} mirror={mirror} />
             ))
           ) : (
             <div className="empty">{t("feedEmpty")}</div>

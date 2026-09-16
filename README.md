@@ -170,6 +170,7 @@ cd frontend && bun run build         # 前端：类型检查 + 构建
 | `MONITOR_ENV` | `production` | 设为 `debug` 时面板才显示"发送测试通知"按钮，并开放 `/docs`、`/redoc`、`/openapi.json` API 文档 |
 | `DEMO` | 空 | 设为 `1` 使用内置演示数据 |
 | `MONITOR_SITE_NAME` | `Codex Reset Monitor` | 面板名称（浏览器标签页标题 + 导航栏名称） |
+| `MONITOR_AVATAR_MIRROR` | 空 | 头像图片代理前缀（可选）：国内网络直连 X 头像 CDN 不可达时，配置后头像经镜像代抓，推荐 `https://wsrv.nl/?w=96&h=96&fit=cover&url=`；留空直连原图，失败自动降级字母头像。配置说明见 `.env.example` |
 | `MONITOR_HOST` / `MONITOR_PORT` | `127.0.0.1` / `8730` | 面板服务监听地址（示例配置为 `0.0.0.0:8730`） |
 | `MONITOR_ACCOUNTS` | `thsottiaux` | 监控的 X 账号，逗号分隔，不带 @ |
 | `MONITOR_POLL_INTERVAL` | `5` | 轮询间隔（分钟） |
