@@ -6,6 +6,7 @@ import { ApiError, j } from "../../api/client";
 import type { Tweet } from "../../api/types";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
+import { AccountAvatar } from "../../components/AccountAvatar";
 import { SVG_BOLT, SVG_CLOCK, SVG_LANG, SVG_LINK, SVG_RSS } from "../../components/icons";
 import { useLang } from "../../i18n/useLang";
 import { esc, fmtLocal, fmtUTC, ago as agoText, hl, localOffsetLabel, localTZName, safeUrl } from "../../utils/format";
@@ -107,6 +108,20 @@ function TweetCard({ tw, isNew, freshIdx }: { tw: Tweet; isNew: boolean; freshId
         <span className="pill" title={t("agoTip")}>{esc(t("stampAgo", { ago: agoText(tw.created_at, lang) }))}</span>
       </div>
       <div className="tcard">
+        {/* 头部行（方案A）：头像 + 昵称 + @handle；第三方数据用 JSX 文本插值，React 自动转义等价于 esc() */}
+        <div className="ta-head">
+          <AccountAvatar handle={tw.account} name={tw.author_name} avatar={tw.author_avatar} />
+          <div className="ta-who">
+            {tw.author_name ? (
+              <>
+                <span className="tname">{tw.author_name}</span>
+                <span className="thandle">@{tw.account}</span>
+              </>
+            ) : (
+              <span className="tname">@{tw.account}</span>
+            )}
+          </div>
+        </div>
         <div className="t-pills">{pills}</div>
         <p className="entry-text" dangerouslySetInnerHTML={{ __html: hl(tw.text, tw.matched_terms) }} />
         {tr?.open && (

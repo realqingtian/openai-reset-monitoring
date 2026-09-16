@@ -12,6 +12,9 @@ export interface Tweet {
   matched_terms: string[];
   notified: boolean;
   is_reply?: boolean | null;
+  /* 账号昵称/头像（按账号缓存，未命中为空）：头像走 safeUrl，缺失时前端字母头像兜底 */
+  author_name?: string | null;
+  author_avatar?: string | null;
 }
 
 export interface SourceState {
