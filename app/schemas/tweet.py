@@ -20,6 +20,9 @@ class TweetOut(BaseModel):
     matched_terms: list[str] = []
     notified: bool
     is_reply: Optional[bool] = None
+    # 账号昵称/头像（按账号缓存在 app_state，见 services/account_meta）：旧缓存未命中时为 None，前端字母头像兜底
+    author_name: Optional[str] = None
+    author_avatar: Optional[str] = None
 
     @field_validator("matched_terms", mode="before")
     @classmethod

@@ -21,6 +21,8 @@ async def fetch(client, scfg: TwitterapiIoConfig, account, backfill=False, **_):
     # 首次运行回填历史（多页拿全）；增量时回复模式多拉一页，防止回复在轮询间隔内刷过单页窗口
     max_pages = 5 if backfill else (2 if scfg.include_replies else 1)
     out: list[dict[str, Any]] = []
+    # 账号元数据（昵称/头像）：响应里每条推文都带 author，取第一个非空的即可
+    meta: dict[str, str] = {}
     cursor: Optional[str] = None
     for page in range(max_pages):
         if cursor:
@@ -43,6 +45,12 @@ async def fetch(client, scfg: TwitterapiIoConfig, account, backfill=False, **_):
             text = (t.get("text") or "").strip()
             if not tid or not text:
                 continue
+            if not meta:
+                author = t.get("author") or {}
+                name = str(author.get("name") or "").strip()
+                avatar = str(author.get("profilePicture") or "").strip()
+                if name or avatar:
+                    meta = {"name": name, "avatar": avatar}
             out.append(
                 {
                     "id": tid,
@@ -59,4 +67,4 @@ async def fetch(client, scfg: TwitterapiIoConfig, account, backfill=False, **_):
         cursor = data["next_cursor"]
         if page + 1 < max_pages:
             await asyncio.sleep(1.0)  # 翻页间隔，降低触发限流的概率
-    return out
+    return out, meta

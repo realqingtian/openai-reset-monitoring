@@ -13,7 +13,7 @@ from app.integrations.sources import fetch_with_failover
 from app.repositories import notify_retry
 from app.repositories import polls as poll_repo
 from app.repositories import tweets as tweet_repo
-from app.services import source_watch
+from app.services import account_meta, source_watch
 from app.services.matcher import match_text
 from app.services.notify import dispatch_hit_dedup
 
@@ -58,7 +58,7 @@ async def run_poll(app) -> dict:
         await _retry_failed_pushes(app)
         for account in cfg.accounts:
             backfill = not await tweet_repo.account_has_tweets(account)
-            tweets, used, attempts = await fetch_with_failover(app.state, account, backfill=backfill)
+            tweets, meta, used, attempts = await fetch_with_failover(app.state, account, backfill=backfill)
             for a in attempts:
                 await poll_repo.log_poll(
                     account, a["source"], a["state"] == "ok", a.get("count", 0), a.get("error"), a.get("latency_ms")
@@ -71,6 +71,8 @@ async def run_poll(app) -> dict:
                     summary["errors"].extend(a["error"] for a in attempts if a.get("error"))
                 log.warning("账号 @%s 所有数据源失败或未配置", account)
                 continue
+            # 顺带刷新账号昵称/头像缓存（提取不到时内部直接跳过，不影响本轮）
+            await account_meta.upsert_from_source(account, meta)
             window_start = hours_ago_iso(cfg.lookback_hours)
             new_count = 0
             for tw in tweets:

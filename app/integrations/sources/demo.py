@@ -104,4 +104,5 @@ async def fetch(client, scfg: Optional[RsshubConfig], account, backfill=False, *
     global _cache
     if _cache is None:
         _cache = _sample_tweets(account)
-    return list(_cache)
+    # 演示昵称刻意不给头像 URL：一并演示字母降级头像的形态
+    return list(_cache), {"name": "Thibault Sottiaux"}

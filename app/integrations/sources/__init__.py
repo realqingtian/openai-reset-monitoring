@@ -42,7 +42,7 @@ def _chain(cfg):
 
 
 async def fetch_with_failover(state, account, backfill=False):
-    """依次尝试数据源，返回 (tweets, 使用的源名, 尝试记录列表)。"""
+    """依次尝试数据源，返回 (tweets, 账号元数据, 使用的源名, 尝试记录列表)。"""
     cfg = state.cfg
     attempts = []
     for name, mod, scfg in _chain(cfg):
@@ -52,14 +52,14 @@ async def fetch_with_failover(state, account, backfill=False):
             continue
         t0 = time.monotonic()
         try:
-            tweets = await mod.fetch(state.client, scfg, account, backfill=backfill)
+            tweets, meta = await mod.fetch(state.client, scfg, account, backfill=backfill)
             latency = int((time.monotonic() - t0) * 1000)
             attempts.append({"source": name, "state": "ok", "error": None, "latency_ms": latency, "count": len(tweets)})
             await health_repo.set_health(name, True)
-            return tweets, name, attempts
+            return tweets, meta, name, attempts
         except Exception as e:
             latency = int((time.monotonic() - t0) * 1000)
             err = f"{type(e).__name__}: {e}"[:300]
             attempts.append({"source": name, "state": "error", "error": err, "latency_ms": latency, "count": 0})
             await health_repo.set_health(name, False, err)
-    return [], None, attempts
+    return [], {}, None, attempts

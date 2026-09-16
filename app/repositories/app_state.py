@@ -1,4 +1,7 @@
-"""监控内部状态表（app_state）数据访问：极小的键值存取，仅供 services/source_watch 使用。"""
+"""监控内部状态表（app_state）数据访问：极小的键值存取。
+
+使用方：services/source_watch（数据源自告警状态）、services/account_meta（账号昵称/头像缓存）。
+"""
 
 from collections.abc import Mapping
 from typing import Optional
