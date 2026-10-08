@@ -7,6 +7,7 @@ from app.core.config import Settings
 from app.core.errors import BizError
 from app.core.text import looks_like_lang
 from app.integrations import translate as translate_upstream
+from app.integrations.ai import is_ai_provider
 from app.repositories import translations as translations_repo
 from app.repositories import tweets as tweet_repo
 from app.schemas import TranslateOut
@@ -28,7 +29,10 @@ async def translate_tweet(cfg: Settings, client, tweet_id: str, to: str) -> Tran
         raise BizError(404, "帖子不存在或内容为空")
     cached = await translations_repo.get_translation(tweet_id, lang)
     if cached:
-        return TranslateOut(id=tweet_id, to=lang, text=cached["text"], provider=cached["provider"] or "", cached=True)
+        provider = cached["provider"] or ""
+        return TranslateOut(
+            id=tweet_id, to=lang, text=cached["text"], provider=provider, cached=True, ai=is_ai_provider(provider)
+        )
     # AI 优先：译文更自然；未配置 AI 或 AI 失败时回退免费通道（Google → MyMemory）
     result = await ai_service.translate_text(cfg, client, row["text"], lang)
     if not result.get("ok"):
@@ -37,8 +41,11 @@ async def translate_tweet(cfg: Settings, client, tweet_id: str, to: str) -> Tran
         raise BizError(502, "翻译服务调用失败", errors=[result.get("error", "translate_failed")])
     if result.get("same"):
         return TranslateOut(id=tweet_id, to=lang, same=True, source=result.get("source"))
-    await translations_repo.save_translation(tweet_id, lang, result["text"], result.get("provider") or "")
-    return TranslateOut(id=tweet_id, to=lang, text=result["text"], provider=result.get("provider") or "", cached=False)
+    provider = result.get("provider") or ""
+    await translations_repo.save_translation(tweet_id, lang, result["text"], provider)
+    return TranslateOut(
+        id=tweet_id, to=lang, text=result["text"], provider=provider, cached=False, ai=is_ai_provider(provider)
+    )
 
 
 async def translation_for_push(cfg: Settings, client, tweet_id: str, text: str) -> Optional[str]:

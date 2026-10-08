@@ -12,6 +12,7 @@ class TranslateOut(BaseModel):
     to: str
     text: Optional[str] = None
     provider: Optional[str] = None
+    ai: Optional[bool] = None  # 是否出自 AI 厂商：面板区分「AI 译文 / 机器译文」标签
     cached: Optional[bool] = None
     same: Optional[bool] = None
     source: Optional[str] = None

@@ -43,7 +43,7 @@ const en: Record<string, string> = {
   aiTranslateOn: "AI-first translation",
   viewOnX: "View on X",
   translate: "Translate", translating: "Translating…", hideTrans: "Hide translation",
-  trTag: "Translation · {{p}}", trSame: "Already in English, no translation needed", trFail: "Translation failed, try again later",
+  trTag: "Translation · {{p}}", trTagAi: "AI translation · {{p}}", trSame: "Already in English, no translation needed", trFail: "Translation failed, try again later",
   okStat: "OK · {{n}} tweets · {{ms}}", failStat: "Failed",
   toastDone: "Check finished", toastCheckFail: "Check failed: {{e}}",
   toastNeedLogin: "This action requires login", toastLoginExpired: "Session expired or invalid, please sign in again",

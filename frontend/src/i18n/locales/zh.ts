@@ -43,7 +43,7 @@ const zh: Record<string, string> = {
   aiTranslateOn: "翻译优先走 AI",
   viewOnX: "在 X 上查看",
   translate: "翻译", translating: "翻译中…", hideTrans: "收起译文",
-  trTag: "机器译文 · {{p}}", trSame: "原文已是中文，无需翻译", trFail: "翻译失败，请稍后重试",
+  trTag: "机器译文 · {{p}}", trTagAi: "AI 译文 · {{p}}", trSame: "原文已是中文，无需翻译", trFail: "翻译失败，请稍后重试",
   okStat: "成功 · {{n}} 条 · {{ms}}", failStat: "失败",
   toastDone: "检查完成", toastCheckFail: "检查失败：{{e}}",
   toastNeedLogin: "此操作需要登录", toastLoginExpired: "登录已过期或失效，请重新登录",

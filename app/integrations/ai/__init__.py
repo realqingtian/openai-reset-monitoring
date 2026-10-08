@@ -36,6 +36,11 @@ def provider_defaults(provider: str) -> Optional[dict[str, str]]:
     return PROTOCOLS.get((provider or "").strip().lower())
 
 
+def is_ai_provider(provider: str) -> bool:
+    """译文是否出自 AI 厂商（google/mymemory 等免费通道不在注册表），面板据此标注「AI 译文」。"""
+    return (provider or "").strip().lower() in PROTOCOLS
+
+
 def default_model(ai: AiConfig) -> str:
     """实际生效的模型名：显式配置优先，否则用厂商默认。"""
     spec = PROTOCOLS.get(ai.provider)

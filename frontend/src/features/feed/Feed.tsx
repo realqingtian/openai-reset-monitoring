@@ -25,6 +25,7 @@ interface Trans {
   loading: boolean;
   text?: string;
   provider?: string;
+  ai?: boolean;
   same?: boolean;
   error?: boolean;
 }
@@ -61,11 +62,11 @@ function TweetCard({ tw, isNew, freshIdx, mirror }: { tw: Tweet; isNew: boolean;
       try {
         // 与立即检查一致：401 时 guard 引导登录，登录成功自动重试
         const data = await auth.guard(() =>
-          j<{ text?: string; provider?: string; same?: boolean }>(
+          j<{ text?: string; provider?: string; ai?: boolean; same?: boolean }>(
             `/api/translate?id=${encodeURIComponent(tw.id)}&to=${to}`,
           ),
         );
-        transCache.set(tw.id, { open: true, loading: false, text: data.text, provider: data.provider, same: data.same });
+        transCache.set(tw.id, { open: true, loading: false, text: data.text, provider: data.provider, ai: data.ai, same: data.same });
       } catch (e) {
         const authFail = e instanceof ApiError && e.auth;
         if (authFail) {
@@ -143,7 +144,8 @@ function TweetCard({ tw, isNew, freshIdx, mirror }: { tw: Tweet; isNew: boolean;
               {!tr.loading && tr.text && (
                 <>
                   <p className="tr-text">{tr.text}</p>
-                  <span className="tr-meta">{t("trTag", { p: tr.provider ?? "" })}</span>
+                  {/* AI 厂商译文单独标注，免费通道（google/mymemory）维持「机器译文」 */}
+                  <span className="tr-meta">{tr.ai ? t("trTagAi", { p: tr.provider ?? "" }) : t("trTag", { p: tr.provider ?? "" })}</span>
                 </>
               )}
             </div>
