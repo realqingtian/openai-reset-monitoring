@@ -32,6 +32,7 @@
   --mark-bg: rgba(167, 139, 250, 0.18); --mark-fg: #c4b5fd; --mark-flash: rgba(167, 139, 250, 0.50);
   --pill-hit-fg: #c4b5fd; --pill-hit-line: rgba(167, 139, 250, 0.42);
   --pill-term-fg: #fbbf24; --pill-term-line: rgba(251, 191, 36, 0.30);
+  --pill-ai-fg: #93c5fd; --pill-ai-line: rgba(147, 197, 253, 0.35);
   --hm-0: rgba(255, 255, 255, 0.055); --hm-1: #33295a; --hm-2: #4c3b87; --hm-3: #6d4fc0; --hm-4: #a78bfa;
   --table-line: rgba(255, 255, 255, 0.04);
   --row-hover: rgba(255, 255, 255, 0.02);
@@ -84,6 +85,7 @@
   --mark-bg: rgba(124, 58, 237, 0.12); --mark-fg: #6d28d9; --mark-flash: rgba(124, 58, 237, 0.35);
   --pill-hit-fg: #6d28d9; --pill-hit-line: rgba(124, 58, 237, 0.38);
   --pill-term-fg: #925206; --pill-term-line: rgba(180, 83, 9, 0.35);
+  --pill-ai-fg: #1d4ed8; --pill-ai-line: rgba(37, 99, 235, 0.32);
   --hm-0: rgba(20, 20, 30, 0.06); --hm-1: #e2d9fb; --hm-2: #c3aef5; --hm-3: #9c7ded; --hm-4: #6d28d9;
   --table-line: rgba(20, 20, 30, 0.06);
   --row-hover: rgba(20, 20, 30, 0.02);
@@ -559,6 +561,7 @@ html.theming .nav-inner, html.theming .toast {
 }
 .pill-hit { color: var(--pill-hit-fg); border-color: var(--pill-hit-line); }
 .pill-term { color: var(--pill-term-fg); border-color: var(--pill-term-line); }
+.pill-ai { color: var(--pill-ai-fg); border-color: var(--pill-ai-line); cursor: help; }
 /* ---------- 卡片头部行：账号头像 + 昵称 + @handle + 右侧相对时间 ---------- */
 .ta-head { display: flex; align-items: center; gap: 11px; margin-bottom: 10px; }
 .ta-who { display: flex; flex-direction: column; gap: 1px; min-width: 0; }

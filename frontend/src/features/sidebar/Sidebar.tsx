@@ -338,6 +338,27 @@ export function Sources({ status }: { status: Status | null }) {
     });
   if (okCount === 0) ntf.push(<span key="hint" className="npill">{t("notifHint")}</span>);
 
+  // AI 能力：配置了所选厂商的 Key 即启用（翻译优先走 AI + 推送前复核），未配置时功能静默降级
+  const ai = status?.ai;
+  const aiPills: ReactNode[] = [];
+  if (ai?.enabled) {
+    aiPills.push(
+      <span key="prov" className="npill">
+        <span className="dot ok" />
+        {t("aiOn", { provider: ai.provider, model: ai.model })}
+      </span>,
+      <span key="cap1" className="npill">{ai.review ? t("aiReviewOn") : t("aiReviewOff")}</span>,
+      <span key="cap2" className="npill">{t("aiTranslateOn")}</span>,
+    );
+  } else {
+    aiPills.push(
+      <span key="off" className="npill">
+        <span className="dot warn" />
+        {t("aiOff")}
+      </span>,
+    );
+  }
+
   return (
     <>
       <div className="sub-title">{t("dataSources")}</div>
@@ -353,6 +374,9 @@ export function Sources({ status }: { status: Status | null }) {
       <div className="divider" />
       <div className="sub-title">{t("notifyChannels")}</div>
       <div className="npills">{ntf}</div>
+      <div className="divider" />
+      <div className="sub-title">{t("aiCap")}</div>
+      <div className="npills">{aiPills}</div>
     </>
   );
 }

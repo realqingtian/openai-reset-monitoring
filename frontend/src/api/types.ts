@@ -12,6 +12,9 @@ export interface Tweet {
   matched_terms: string[];
   notified: boolean;
   is_reply?: boolean | null;
+  /* AI 复核结论：hit=确认公告；miss=判定无关（推送被抑制）；空=未启用复核或复核失败 */
+  ai_verdict?: string | null;
+  ai_reason?: string | null;
   /* 账号昵称/头像（按账号缓存，未命中为空）：头像走 safeUrl，缺失时前端字母头像兜底 */
   author_name?: string | null;
   author_avatar?: string | null;
@@ -32,6 +35,13 @@ export interface NotifierState {
   name: string;
   enabled: boolean;
   configured: boolean;
+}
+
+export interface AiState {
+  provider: string;
+  model: string;
+  enabled: boolean;
+  review: boolean;
 }
 
 export interface RuleInfo {
@@ -58,6 +68,7 @@ export interface Status {
   hits: Tweet[];
   sources: SourceState[];
   notifiers: NotifierState[];
+  ai?: AiState | null;
   rules: RuleInfo[];
 }
 

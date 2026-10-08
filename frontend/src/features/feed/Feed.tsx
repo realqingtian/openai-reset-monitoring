@@ -93,6 +93,14 @@ function TweetCard({ tw, isNew, freshIdx, mirror }: { tw: Tweet; isNew: boolean;
     (tw.matched_terms || []).slice(0, 6).forEach((w, i) =>
       pills.push(<span key={`term${i}`} className="pill pill-term">{esc(w)}</span>),
     );
+    // AI 复核判定为无关：解释这条命中为什么没有被推送（悬停看 AI 的一句话依据）
+    if (tw.ai_verdict === "miss") {
+      pills.push(
+        <span key="ai" className="pill pill-ai" title={esc(t("aiMissTip", { reason: tw.ai_reason || "" }))}>
+          {t("aiMissPill")}
+        </span>,
+      );
+    }
     if (tw.notified) pills.push(<span key="pushed" className="pill">{t("pushed")}</span>);
   }
 
