@@ -58,6 +58,17 @@ def _sample_tweets(account="thsottiaux"):
             "is_reply": 0,
         },
         {
+            # 「发重置卡」类公告样本：与额度重置公告区分，供日历的事件分类徽章演示
+            # （措辞保证默认规则的三条模式都能命中：reset / usage limits / everyone）
+            "id": "demo-1009",
+            "account": account,
+            "source": "demo",
+            "text": "Loading a banked reset into everyone's usage limits tonight. See you again tomorrow!",
+            "url": f"https://x.com/{account}/status/2086000000000000009",
+            "created_at": at(3),
+            "is_reply": 0,
+        },
+        {
             "id": "demo-1005",
             "account": account,
             "source": "demo",

@@ -71,6 +71,24 @@ async def matched_tweets(limit: int = 100) -> list[dict[str, Any]]:
         return [to_dict(r) for r in rows]
 
 
+async def matched_tweets_between(start: str, end: str, limit: int = 1000) -> list[dict[str, Any]]:
+    """按发布时间窗取命中（created_at 为固定宽度 UTC ISO，字符串比较即时间比较）。"""
+    async with session_factory() as s:
+        rows = (
+            (
+                await s.execute(
+                    select(Tweet)
+                    .where(Tweet.matched == 1, Tweet.created_at >= start, Tweet.created_at < end)
+                    .order_by(Tweet.created_at.desc())
+                    .limit(limit),
+                )
+            )
+            .scalars()
+            .all()
+        )
+        return [to_dict(r) for r in rows]
+
+
 async def mark_hit(tweet_id: str, rule_name: str, terms: list[str]):
     async with session_factory() as s:
         await s.execute(

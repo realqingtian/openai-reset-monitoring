@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-from app.api import auth, polls, stats, status, system, translate, tweets
+from app.api import auth, calendar, polls, stats, status, system, translate, tweets
 
 api_router = APIRouter()
 api_router.include_router(auth.router)
@@ -10,5 +10,6 @@ api_router.include_router(status.router)
 api_router.include_router(tweets.router)
 api_router.include_router(polls.router)
 api_router.include_router(stats.router)
+api_router.include_router(calendar.router)
 api_router.include_router(translate.router)
 api_router.include_router(system.router)
