@@ -101,6 +101,7 @@ frontend/         # React 独立前端工程（Vite + React 19 + TS，bun 管理
 - 检查日志面板固定取最近 200 条（`/api/polls?limit=200`，API 上限 200），数据库保留 30 天；徽章有悬停说明。
 - 数据源自告警（`services/source_watch.py`）：连续 `MONITOR_SOURCE_ALERT_THRESHOLD`（默认 3）轮检查全部失败经渠道告警，恢复后发恢复通知；重发间隔 `MONITOR_SOURCE_ALERT_REPEAT_MINUTES`（默认 60，0 不重发）。状态存 `app_state` 表（重启不重复打扰、不漏发恢复）；未配置任何源不算失败；DEMO 模式整体跳过。
 - 推文保留分级：未命中 30 天滚动清理、命中 180 天（`MONITOR_TWEET/HIT_RETENTION_DAYS`），供「重置节奏」统计卡（`/api/stats`）采样；此前推文从不清理，旧库首次升级会补执行清理。
+- AI 能力（`integrations/ai/` 多厂商接入：deepseek / openai / anthropic / glm，`MONITOR_AI_PROVIDER` 切换，各厂商独立 Key「填了即启用」）：帖子翻译 AI 优先，失败自动回退 Google / MyMemory 免费通道；正则命中推送前默认 AI 复核（`MONITOR_AI_REVIEW=false` 关闭），结论存 `tweets.ai_verdict/ai_reason`（每帖只复核一次，补推与面板徽章复用），miss 不推送也不标已推送、面板带「AI 判定无关」徽章、节奏统计剔除该样本；推送模板自带译文块（`_hit_message` 的 extra），企微渠道按 UTF-8 字节截断并保底直达链接。**AI 调用失败一律 fail-open**（按正则命中照常推送、翻译回退免费通道），不得改成 fail-closed。
 - 登录鉴权（JWT，`MONITOR_ADMIN_PASSWORD` 留空即完全关闭）：单管理员账密经 `POST /api/login` 换 HS256 JWT（默认 24h，`MONITOR_TOKEN_EXPIRE_HOURS`；密钥未显式配置时从口令派生，改口令全量失效）。需登录的「操作」：poll-now / test-notify / translate；读接口与面板公开，匿名 `/api/tweets` 窗口钳制 24h。前端 JWT 存 localStorage `crm-jwt`，401 弹登录窗自动重试。
 - DEMO 模式隔离是双重的：独立库 `data/demo.db` + 跳过全部真实渠道推送（`notifiers._dispatch` 统一拦截），演示命中保持未推送状态。
 - 推送按渠道粒度判定送达：全部尝试渠道成功才标记已推送；失败渠道由每轮轮询开头的补推扫描只向失败渠道重发；命中时未配置渠道的推文不补推（面板历史仍在）。

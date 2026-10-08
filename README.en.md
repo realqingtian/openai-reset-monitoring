@@ -22,7 +22,11 @@ alert on the dashboard and pushes notifications to Feishu / DingTalk / WeCom / B
 - 🔔 **Five push channels**: Feishu / DingTalk / WeCom / Bark / Telegram; each hit pushes at most once per channel,
   failed channels are retried automatically (succeeded ones are never re-sent), duplicate announcements never disturb twice
 - 🩺 **Source self-alerting**: when a data source keeps failing, all configured channels get an alert, and a recovery
-  notice follows once polling is healthy again — no more silently dead monitors
+- 🤖 **AI review (optional)**: with a DeepSeek / OpenAI / Claude / GLM key configured, every regex hit is
+  re-checked by the AI before pushing — false positives no longer ping your channels; rejected posts stay
+  on the panel with a badge
+- 🩺 **Source self-alerting**: after N consecutive failed cycles the monitor alerts through all channels and
+  sends a recovery notice once polling is healthy again — no more silently dead monitors
 - 📈 **Reset rhythm stats**: average interval, last hit and the next expected window derived from hit history,
   with a mini timeline
 - 🔐 **JWT login auth**: the dashboard stays anonymously viewable (24-hour data); actions like "Check now" guide
@@ -31,8 +35,9 @@ alert on the dashboard and pushes notifications to Feishu / DingTalk / WeCom / B
   check logs on the right; auto refresh every 60 seconds
 - 🕐 **Timestamps at a glance**: every post shows the real publish time (UTC+0), the converted time (UTC+8) and
   "published N hours ago"; push messages carry both timezones as well
-- 🔤 **One-click translation**: each post card has a "Translate" button (Google channel first, MyMemory fallback,
-  both key-free); translations are cached in SQLite and survive page refreshes
+- 🔤 **One-click translation**: each post card has a "Translate" button (AI-first when configured, Google /
+  MyMemory key-free fallback); translations are cached in SQLite and survive page refreshes, and hits push
+  with the translation attached
 - 🌓 **Light/dark theme**: dark / light / follow-system, preference remembered locally
 - 🌍 **Chinese & English UI**: the dashboard language follows the browser; the push message language is configured
   independently
@@ -260,24 +265,53 @@ docker run -d --name rsshub -p 1200:1200 \
 appears in the top-right of the dashboard; click it and every configured channel receives a test message. Switch back
 to `production` afterwards (the button hides again; normal pushing is unaffected).
 
-**A push looks like this** (language set by `MONITOR_NOTIFY_LANG`, English shown):
+**A push looks like this** (language set by `MONITOR_NOTIFY_LANG`; with AI configured, the translation
+and the AI review verdict are attached automatically):
 
 ```
 🚨 Codex Reset Monitor Hit
-Account: @thsottiaux
-Matched rule: 全球重置·英文
-Published: 2026-09-09 05:34:46 (UTC+0)
-Published: 2026-09-09 13:34:46 (UTC+8)
 
-Content:
+👤 Account: @thsottiaux (Tibo)
+🕐 Published: 2026-09-09 13:34:46 (UTC+8) | 05:34:46 (UTC+0)
+
+💬 Original:
 Usage limits have been reset for all paid ChatGPT Work and Codex users. …
 
-Open tweet:
+🌐 Translation:
+所有付费 ChatGPT Work 与 Codex 用户的用量限制已重置。…
+
+🏷 Matched rule: 全球重置·英文 (Usage limits、reset)
+🤖 AI review: A clear announcement that usage has been reset for all paid users
+
+🔗 Open tweet:
 https://x.com/thsottiaux/status/…
 ```
 
 > The matched-rule name comes from your rule configuration; the built-in rule names are Chinese —
 > override them with `MONITOR_RULES_JSON` if you want English names.
+
+### AI capabilities (optional: hit review + translation)
+
+Configure any provider's API key and both capabilities go live; leave them empty and behavior is
+identical to before.
+
+| Provider | Credentials | Default model | Get a key |
+|---|---|---|---|
+| DeepSeek (default) | `DEEPSEEK_API_KEY` | `deepseek-chat` | [platform.deepseek.com](https://platform.deepseek.com) |
+| OpenAI | `OPENAI_API_KEY` | `gpt-4o-mini` | [platform.openai.com](https://platform.openai.com/api-keys) |
+| Anthropic (Claude) | `ANTHROPIC_API_KEY` | `claude-3-5-haiku-latest` | [console.anthropic.com](https://console.anthropic.com) |
+| Zhipu GLM | `GLM_API_KEY` | `glm-4-flash` | [open.bigmodel.cn](https://open.bigmodel.cn) |
+
+- `MONITOR_AI_PROVIDER` picks the active provider (default `deepseek`); keys of several providers can
+  be kept at once and switched anytime
+- **Hit review**: a regex hit is only a candidate — before pushing, the AI judges whether the post is
+  really a reset/subscription announcement, so false positives no longer ping your channels. Such posts
+  stay on the panel with an "AI: not related" badge (hover for the reason); `MONITOR_AI_REVIEW=false` disables it
+- **AI translation**: panel translations and the translation attached to pushes prefer AI, with automatic
+  fallback to the free channels (Google / MyMemory)
+- **Safety first**: AI timeouts or errors always degrade gracefully (regex hits still push; translation
+  falls back) — polling and pushing are never blocked by the AI
+- `MONITOR_AI_MODEL` / `MONITOR_AI_BASE_URL` override the default model and official endpoint (for gateways)
 
 ### Match rules
 
@@ -334,6 +368,10 @@ OpenAPI schema and is available only with `MONITOR_ENV=debug` — production doe
   never pushed get pushed, older ones only get their records backfilled
 - **No duplicate noise**: the same announcement posted as several tweets (highly similar content) pushes only the
   first one
+- **AI review degradation**: with no AI configured the review is skipped entirely; on timeout/error the post
+  still pushes per the regex hit (fail-open). Each post is reviewed at most once — the verdict is stored with
+  the tweet and reused by retry scans and panel badges, so no repeated AI calls. Reset-rhythm stats exclude
+  posts the AI judged unrelated, keeping the average interval clean of false-positive samples
 - **Latency**: the default poll interval is 5 minutes. Reset announcements usually land hours before they take
   effect, so 5 minutes is enough; lowering it gets you there sooner and costs more per fetch
 - **Self-alerting**: after `MONITOR_SOURCE_ALERT_THRESHOLD` (default 3) consecutive fully-failed cycles, all
