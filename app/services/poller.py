@@ -15,7 +15,7 @@ from app.repositories import polls as poll_repo
 from app.repositories import tweets as tweet_repo
 from app.services import account_meta, source_watch
 from app.services.matcher import match_text
-from app.services.notify import dispatch_hit_dedup
+from app.services.notify import dispatch_hit_dedup, push_extra
 
 log = logging.getLogger("poller")
 
@@ -39,7 +39,9 @@ async def _retry_failed_pushes(app):
         except ValueError:
             terms = []
         mres = {"rule": tw["rule_name"] or "", "terms": terms if isinstance(terms, list) else []}
-        results = await notifiers.dispatch_hit(cfg, app.state.client, tw, mres, only_channels=failed)
+        # 与首次推送同一套附件（译文走缓存）：保证失败渠道收到的内容与其他渠道一致
+        extra = await push_extra(cfg, app.state.client, tw)
+        results = await notifiers.dispatch_hit(cfg, app.state.client, tw, mres, only_channels=failed, extra=extra)
         if not results or all(r["ok"] for r in results):
             await tweet_repo.mark_notified(tw["id"])
 

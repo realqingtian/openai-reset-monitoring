@@ -27,7 +27,9 @@ def _parse(iso) -> Optional[datetime]:
 
 
 async def assemble_stats() -> StatsOut:
-    hits = await tweet_repo.matched_tweets(SAMPLE_LIMIT)
+    rows = await tweet_repo.matched_tweets(SAMPLE_LIMIT)
+    # AI 复核判定为无关的「命中」是正则误报，不进入节奏采样（否则平均间隔被噪声拉偏）
+    hits = [h for h in rows if h.get("ai_verdict") != "miss"]
     times = sorted(t for t in (_parse(h["created_at"]) for h in hits) if t)
     now = datetime.now(timezone.utc)
     intervals = [(b - a).total_seconds() / 3600 for a, b in zip(times, times[1:]) if (b - a).total_seconds() > 0]

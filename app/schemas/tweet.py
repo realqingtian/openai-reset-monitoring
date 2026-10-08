@@ -20,6 +20,9 @@ class TweetOut(BaseModel):
     matched_terms: list[str] = []
     notified: bool
     is_reply: Optional[bool] = None
+    # AI 复核结论：hit=确认公告；miss=判定无关（推送被抑制）；None=未启用复核或复核失败
+    ai_verdict: Optional[str] = None
+    ai_reason: Optional[str] = None
     # 账号昵称/头像（按账号缓存在 app_state，见 services/account_meta）：旧缓存未命中时为 None，前端字母头像兜底
     author_name: Optional[str] = None
     author_avatar: Optional[str] = None

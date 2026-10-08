@@ -29,6 +29,9 @@ class Tweet(Base):
     notified: Mapped[Optional[int]] = mapped_column(Integer, server_default=sa_text("0"))
     content_hash: Mapped[Optional[str]] = mapped_column(Text)  # 内容指纹，用于跨推文去重
     is_reply: Mapped[Optional[int]] = mapped_column(Integer)  # 是否为回复：0/1；NULL=数据源无法判定
+    # AI 复核结论（可选能力）：verdict 为 hit（确认公告）/ miss（判定无关，推送被抑制）；NULL=未复核或复核失败
+    ai_verdict: Mapped[Optional[str]] = mapped_column(Text)
+    ai_reason: Mapped[Optional[str]] = mapped_column(Text)  # AI 的一句话判定依据（推送语言），供面板悬停展示
 
     __table_args__ = (
         Index("idx_tweets_created", "created_at"),

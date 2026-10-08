@@ -50,14 +50,19 @@ NOTIFY_TEXTS = {
     "zh": {
         "hit_title": "🚨 Codex 重置监控命中",
         "colon": "：",
-        "account": "账号",
-        "rule": "命中规则",
-        "pub_time": "发布时间",
-        "pub_suffix": "（UTC+0）",
-        "cst_time": "发布时间",
+        "account": "👤 账号",
+        "open_paren": "（",
+        "close_paren": "）",
+        "pub_time": "🕐 发布时间",
         "cst_suffix": "（UTC+8）",
-        "content": "内容",
-        "link": "直达推文",
+        "utc_suffix": "（UTC+0）",
+        "time_join": " ｜ ",
+        "content": "💬 原文",
+        "translation": "🌐 译文",
+        "rule": "🏷 命中规则",
+        "terms_join": "、",
+        "ai_review": "🤖 AI 复核",
+        "link": "🔗 直达推文",
         "truncated": "…（内容过长已截断）",
         "test_title": "🔔 Codex 重置监控 · 测试消息",
         "test_body": "这是一条测试通知，说明该渠道配置正确。",
@@ -75,14 +80,19 @@ NOTIFY_TEXTS = {
     "en": {
         "hit_title": "🚨 Codex Reset Monitor Hit",
         "colon": ": ",
-        "account": "Account",
-        "rule": "Matched rule",
-        "pub_time": "Published",
-        "pub_suffix": "(UTC+0)",
-        "cst_time": "Published",
-        "cst_suffix": "(UTC+8)",
-        "content": "Content",
-        "link": "Open tweet",
+        "account": "👤 Account",
+        "open_paren": " (",
+        "close_paren": ")",
+        "pub_time": "🕐 Published",
+        "cst_suffix": " (UTC+8)",
+        "utc_suffix": " (UTC+0)",
+        "time_join": " | ",
+        "content": "💬 Original",
+        "translation": "🌐 Translation",
+        "rule": "🏷 Matched rule",
+        "terms_join": ", ",
+        "ai_review": "🤖 AI review",
+        "link": "🔗 Open tweet",
         "truncated": "… (truncated)",
         "test_title": "🔔 Codex Reset Monitor · Test",
         "test_body": "This is a test notification. The channel is configured correctly.",
@@ -105,24 +115,47 @@ def _texts(cfg):
     return NOTIFY_TEXTS.get(lang, NOTIFY_TEXTS["zh"])
 
 
-def _hit_message(tweet, mres, texts):
+def _clip(text, limit, suffix):
+    """正文超长截断：优先在词边界（空格）处收刀，中文无空格则按硬长度切。"""
+    text = text or ""
+    if len(text) <= limit:
+        return text
+    cut = text[:limit].rsplit(" ", 1)[0]
+    return (cut if len(cut) > limit // 2 else text[:limit]) + suffix
+
+
+def _hit_message(tweet, mres, texts, extra=None):
+    """命中公告消息：账号 → 双时区时间 → 原文 → 译文（有则附）→ 命中规则与命中词 → AI 结论 → 链接。
+
+    extra: {author_name, ai_verdict, ai_reason, translation}，由通知用例层组装，各项可缺省。
+    """
+    extra = extra or {}
     utc_s, cst_s = _fmt_push_times(tweet["created_at"])
-    content = tweet["text"]
-    if len(content) > 400:
-        content = content[:400].rsplit(" ", 1)[0] + texts["truncated"]
-    title = texts["hit_title"]
     c = texts["colon"]
-    body = (
-        f"{texts['account']}{c}@{tweet['account']}\n"
-        f"{texts['rule']}{c}{mres['rule']}\n"
-        f"{texts['pub_time']}{c}{utc_s}{texts['pub_suffix']}\n"
-        f"{texts['cst_time']}{c}{cst_s}{texts['cst_suffix']}\n"
-        f"\n{texts['content']}{c}\n"
-        f"{content}\n"
-        f"\n{texts['link']}{c}\n"
-        f"{tweet['url']}"
-    )
-    return {"title": title, "body": body, "url": tweet["url"]}
+    who = "@" + str(tweet.get("account") or "")
+    author = (extra.get("author_name") or "").strip()
+    if author:
+        who += f"{texts['open_paren']}{author}{texts['close_paren']}"
+    lines = [
+        f"{texts['account']}{c}{who}",
+        f"{texts['pub_time']}{c}{cst_s}{texts['cst_suffix']}{texts['time_join']}{utc_s}{texts['utc_suffix']}",
+        "",
+        f"{texts['content']}{c}",
+        _clip(tweet["text"], 400, texts["truncated"]),
+    ]
+    translation = (extra.get("translation") or "").strip()
+    if translation:
+        lines += ["", f"{texts['translation']}{c}", _clip(translation, 400, texts["truncated"])]
+    terms = [str(t) for t in (mres.get("terms") or []) if str(t).strip()]
+    rule_line = f"{texts['rule']}{c}{mres.get('rule') or ''}"
+    if terms:
+        rule_line += f"{texts['open_paren']}{texts['terms_join'].join(terms)}{texts['close_paren']}"
+    lines += ["", rule_line]
+    # 只有 AI 确认的公告才会走到推送（判定无关在用例层已被拦下），这里展示复核依据
+    if extra.get("ai_verdict") == "hit" and (extra.get("ai_reason") or "").strip():
+        lines.append(f"{texts['ai_review']}{c}{str(extra['ai_reason']).strip()}")
+    lines += ["", f"{texts['link']}{c}", tweet["url"]]
+    return {"title": texts["hit_title"], "body": "\n".join(lines), "url": tweet["url"]}
 
 
 async def _dispatch(cfg, client, msg, tweet_id, only_channels=None):
@@ -149,10 +182,11 @@ async def _dispatch(cfg, client, msg, tweet_id, only_channels=None):
     return results
 
 
-async def dispatch_hit(cfg, client, tweet, mres, only_channels=None):
-    """推送命中公告。only_channels 供补推使用：只重发指定（上次失败的）渠道。"""
+async def dispatch_hit(cfg, client, tweet, mres, only_channels=None, extra=None):
+    """推送命中公告。only_channels 供补推使用：只重发指定（上次失败的）渠道；
+    extra 携带译文 / AI 复核结论 / 作者昵称，缺省时渲染不含附加块的模板。"""
     texts = _texts(cfg)
-    return await _dispatch(cfg, client, _hit_message(tweet, mres, texts), tweet["id"], only_channels)
+    return await _dispatch(cfg, client, _hit_message(tweet, mres, texts, extra), tweet["id"], only_channels)
 
 
 def _fmt_duration(hours: float, texts) -> str:

@@ -28,6 +28,15 @@ class NotifierState(BaseModel):
     configured: bool
 
 
+class AiState(BaseModel):
+    """AI 能力状态（翻译 + 命中复核）。"""
+
+    provider: str
+    model: str  # 实际生效的模型（显式配置或厂商默认）
+    enabled: bool  # 是否配置了所选厂商的 API Key
+    review: bool  # 命中推送前的 AI 复核开关（未配置 AI 时不生效）
+
+
 class RuleInfo(BaseModel):
     """展示用命中规则。"""
 
@@ -55,4 +64,5 @@ class StatusOut(BaseModel):
     hits: list[TweetOut]
     sources: list[SourceState]
     notifiers: list[NotifierState]
+    ai: AiState
     rules: list[RuleInfo]

@@ -5,11 +5,12 @@ from app.schemas.common import ErrorBody, UnifiedResponse, ok
 from app.schemas.notify import TestNotifyResult
 from app.schemas.poll import PollOut
 from app.schemas.stats import DayHitOut, StatsOut
-from app.schemas.status import NotifierState, RuleInfo, SourceState, StatusOut
+from app.schemas.status import AiState, NotifierState, RuleInfo, SourceState, StatusOut
 from app.schemas.translate import TranslateOut
 from app.schemas.tweet import TweetOut
 
 __all__ = [
+    "AiState",
     "DayHitOut",
     "ErrorBody",
     "LoginIn",

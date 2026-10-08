@@ -87,6 +87,15 @@ async def mark_notified(tweet_id: str):
         await s.commit()
 
 
+async def save_ai_review(tweet_id: str, verdict: str, reason: str):
+    """落 AI 复核结论（每帖只复核一次，结论随推文生命周期保留，补推扫描据此免二次调用）。"""
+    async with session_factory() as s:
+        await s.execute(
+            update(Tweet).where(Tweet.id == tweet_id).values(ai_verdict=verdict, ai_reason=reason),
+        )
+        await s.commit()
+
+
 async def account_has_tweets(account: str) -> bool:
     async with session_factory() as s:
         row = (await s.execute(select(Tweet.id).where(Tweet.account == account).limit(1))).first()
