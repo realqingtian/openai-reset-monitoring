@@ -83,6 +83,26 @@ export interface Stats {
   daily_hits: { day: string; count: number }[];
 }
 
+/* 重置日历：kind=事件分类（quota=额度重置 card=发重置卡），prediction=节奏外推 */
+export interface CalendarEvent {
+  id: string;
+  created_at: string;
+  text: string;
+  url: string;
+  kind: "quota" | "card";
+}
+
+export interface CalendarPrediction {
+  expected_at: string;
+  avg_interval_hours: number;
+  last_hit_at: string;
+}
+
+export interface CalendarData {
+  events: CalendarEvent[];
+  prediction?: CalendarPrediction | null;
+}
+
 export interface Poll {
   id: number;
   ts?: string | null;

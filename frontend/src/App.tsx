@@ -12,6 +12,7 @@ import { LangModeProvider } from "./i18n/LangModeContext";
 import { Footer } from "./components/Footer";
 import { Nav } from "./components/Nav";
 import AnimatedContent from "./components/reactbits/AnimatedContent";
+import { CalendarSection } from "./features/calendar/Calendar";
 import { Feed } from "./features/feed/Feed";
 import { Hero } from "./features/hero/Hero";
 import { HitHistory, LiveStats, PollLog, RhythmCard, Sources } from "./features/sidebar/Sidebar";
@@ -25,6 +26,8 @@ function Panel() {
   const [hits, setHits] = useState<Tweet[]>([]);
   const [polls, setPolls] = useState<Poll[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
+  // 日历自取数据的刷新信号：面板每轮刷新（含手动立即检查）都会自增，日历跟随重取
+  const [calTick, setCalTick] = useState(0);
 
   const refresh = useCallback(async () => {
     try {
@@ -43,6 +46,8 @@ function Panel() {
       auth.syncRequired(st.access_protected);
     } catch (e) {
       toast(t("toastLoadFail", { e: (e as Error).message }), false);
+    } finally {
+      setCalTick((n) => n + 1);
     }
   }, [auth, t, toast]);
 
@@ -69,11 +74,9 @@ function Panel() {
       <div className="grain" aria-hidden />
       <Nav status={status} onCheckDone={() => void refresh()} />
       <div className="wrap">
+        {/* 三区仪表盘：Hero 全宽横幅 → 左状态列 / 中帖子流（首屏主体）/ 右节奏列 */}
+        <Hero status={status} />
         <div className="dash">
-          <div className="main">
-            <Hero status={status} />
-            <Feed tweets={tweets} mirror={status?.avatar_mirror} />
-          </div>
           <aside className="rail">
             <div className="card">
               <div className="card-core">
@@ -82,6 +85,7 @@ function Panel() {
                 </AnimatedContent>
               </div>
             </div>
+            {/* 节奏卡（倒计时 + 26 周热力图）紧随实时统计：长期节奏首屏可见，不沉到页面底部 */}
             <div className="card">
               <div className="card-core">
                 <AnimatedContent distance={24} duration={0.6} delay={0.1}>
@@ -108,6 +112,16 @@ function Panel() {
                 <AnimatedContent distance={24} duration={0.6} delay={0.4}>
                   <PollLog polls={polls} />
                 </AnimatedContent>
+              </div>
+            </div>
+          </aside>
+          <main className="main">
+            <Feed tweets={tweets} mirror={status?.avatar_mirror} />
+          </main>
+          <aside className="side">
+            <div className="card">
+              <div className="card-core">
+                <CalendarSection tick={calTick} />
               </div>
             </div>
           </aside>

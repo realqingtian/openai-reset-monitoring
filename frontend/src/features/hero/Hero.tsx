@@ -12,21 +12,21 @@ export function Hero({ status }: { status: Status | null }) {
   const hit = (status?.hit_count_24h ?? 0) > 0;
 
   return (
-    <div className={"card in" + (hit ? " hit" : "")} id="hero">
+    <div className={"card hero" + (hit ? " hit" : "")} id="hero">
       <div className="card-core hero-core">
-        <div className="hero-glyph" aria-hidden dangerouslySetInnerHTML={{ __html: hit ? SVG_ALERT : SVG_OK }} />
-        <div>
+        <span className="hero-glyph" aria-hidden dangerouslySetInnerHTML={{ __html: hit ? SVG_ALERT : SVG_OK }} />
+        <div className="hero-text">
           <span className="eyebrow">
             <span className={"pulse-dot " + (hit ? "red" : "green")} />
             <span>{hit ? t("alertState") : t("monitoring")}</span>
           </span>
-        </div>
-        <div className="hero-status">{hit ? t("hitDetected", { n: status?.hit_count_24h ?? 0 }) : t("noHit")}</div>
-        <div className="hero-sub">
-          {t("heroSub", {
-            acc: (status?.accounts || []).map((a) => "@" + a).join(lang === "zh" ? "、" : ", "),
-            ago: ago(status?.last_poll_at, lang),
-          })}
+          <span className="hero-status">{hit ? t("hitDetected", { n: status?.hit_count_24h ?? 0 }) : t("noHit")}</span>
+          <span className="hero-sub">
+            {t("heroSub", {
+              acc: (status?.accounts || []).map((a) => "@" + a).join(lang === "zh" ? "、" : ", "),
+              ago: ago(status?.last_poll_at, lang),
+            })}
+          </span>
         </div>
         <div className="hero-link-row">
           {hit && status?.latest_hit && (
