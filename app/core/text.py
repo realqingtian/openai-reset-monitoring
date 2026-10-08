@@ -27,3 +27,16 @@ def texts_similar(a, b, threshold=0.8):
 def content_hash(text):
     """推文内容指纹：归一化空白与大小写后取哈希，用于"同内容不同推文"的去重。"""
     return hashlib.sha256(normalize_text(text).encode("utf-8")).hexdigest()
+
+
+def looks_like_lang(text: str, lang: str) -> bool:
+    """粗判文本是否已属目标语言（与前端同一套启发式）：zh 看是否含 CJK，en 看是否纯拉丁字符。
+
+    只用于「是否免翻」的省钱判断，误判代价是少一次/多一次翻译，不影响正确性。
+    """
+    text = (text or "").strip()
+    if not text:
+        return True
+    if lang == "zh":
+        return any("\u4e00" <= ch <= "\u9fff" for ch in text)
+    return all(ord(ch) <= 0xFF for ch in text)

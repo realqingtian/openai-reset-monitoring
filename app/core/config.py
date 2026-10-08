@@ -89,6 +89,24 @@ class ServiceConfig(BaseModel):
     port: int = 8730
 
 
+class AiConfig(BaseModel):
+    """AI 服务配置：填了所选厂商的 API Key 即启用（帖子翻译优先走 AI，命中公告可选 AI 复核）。
+
+    厂商默认模型 / 接口地址的注册表在 integrations/ai，这里只承载用户配置的原始值。
+    """
+
+    provider: str = "deepseek"
+    api_key: str = ""
+    model: str = ""  # 留空用厂商默认模型
+    base_url: str = ""  # 留空用官方接口地址（走中转网关时覆盖）
+    review: bool = True  # 命中公告推送前先经 AI 复核，排除正则误报
+    timeout: int = 60
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self.api_key.strip())
+
+
 class TwitterapiIoConfig(BaseModel):
     """twitterapi.io 数据源：填了 API Key 即启用。"""
 
@@ -220,6 +238,17 @@ class Settings(BaseSettings):
     tg_bot_token: str = ""
     tg_chat_id: str = ""
 
+    # -- AI 能力（翻译 + 命中复核；填所选厂商的 Key 即启用） --
+    monitor_ai_provider: str = "deepseek"  # deepseek / openai / anthropic / glm
+    deepseek_api_key: str = ""
+    openai_api_key: str = ""
+    anthropic_api_key: str = ""
+    glm_api_key: str = ""
+    monitor_ai_model: str = ""  # 留空用所选厂商默认模型
+    monitor_ai_base_url: str = ""  # 留空用官方接口地址，中转网关时覆盖
+    monitor_ai_review: bool = True  # 命中公告推送前的 AI 复核（AI 未配置时不生效）
+    monitor_ai_timeout: int = 60
+
     @model_validator(mode="before")
     @classmethod
     def _drop_empty_env(cls, values):
@@ -241,7 +270,12 @@ class Settings(BaseSettings):
         return v if v in ("zh", "en") else "zh"
 
     @field_validator(
-        "monitor_port", "monitor_poll_interval", "monitor_lookback_hours", "monitor_token_expire_hours", mode="after"
+        "monitor_port",
+        "monitor_poll_interval",
+        "monitor_lookback_hours",
+        "monitor_token_expire_hours",
+        "monitor_ai_timeout",
+        mode="after",
     )
     @classmethod
     def _positive(cls, v):
@@ -363,6 +397,25 @@ class Settings(BaseSettings):
             wecom=WecomConfig(webhook=self.wecom_webhook),
             bark=BarkConfig(server_url=self.bark_url),
             telegram=TelegramConfig(bot_token=self.tg_bot_token, chat_id=self.tg_chat_id),
+        )
+
+    @property
+    def ai(self) -> AiConfig:
+        """AI 配置视图：按 MONITOR_AI_PROVIDER 选出对应厂商的 Key（各厂商 Key 可同时留存，切换不丢）。"""
+        provider = (self.monitor_ai_provider or "deepseek").strip().lower()
+        keys = {
+            "deepseek": self.deepseek_api_key,
+            "openai": self.openai_api_key,
+            "anthropic": self.anthropic_api_key,
+            "glm": self.glm_api_key,
+        }
+        return AiConfig(
+            provider=provider,
+            api_key=keys.get(provider, ""),
+            model=self.monitor_ai_model,
+            base_url=self.monitor_ai_base_url,
+            review=self.monitor_ai_review,
+            timeout=self.monitor_ai_timeout,
         )
 
     @cached_property

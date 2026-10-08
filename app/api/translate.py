@@ -11,5 +11,5 @@ router = APIRouter()
 
 @router.get("/api/translate", response_model=UnifiedResponse[TranslateOut], dependencies=[Depends(require_login)])
 async def api_translate(request: Request, id: str = Query(...), to: str = Query(default="zh")):
-    """按需翻译推文内容。推文不可变，译文以 (tweet_id, lang) 缓存后永久复用。"""
-    return ok(await translate_service.translate_tweet(request.app.state.client, id, to))
+    """按需翻译推文内容。推文不可变，译文以 (tweet_id, lang) 缓存后永久复用；AI 优先，失败回退免费通道。"""
+    return ok(await translate_service.translate_tweet(request.app.state.cfg, request.app.state.client, id, to))
