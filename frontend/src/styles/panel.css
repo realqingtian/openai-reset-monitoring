@@ -1,5 +1,5 @@
-/* 面板全部样式：主题令牌（深/浅）→ 布局 → 组件 → 动效 → 移动端适配。
-   由 index.html 内联 <style> 原样迁出，规则内容未做任何改动。 */
+/* 面板全部样式：主题令牌（深/浅）→ 布局（bento 瓷片）→ 组件 → 动效 → 移动端适配。
+   2026-10 布局重设计：倒计时优先的 bento 网格，替代原「左状态/中帖子/右节奏」三区布局。 */
 
 /* ---------- 主题令牌：深色（默认） ---------- */
 :root {
@@ -49,9 +49,9 @@
   --grain-o: 0.045;
   --sel-bg: rgba(139, 92, 246, 0.35);
   --ease: cubic-bezier(0.32, 0.72, 0, 1);
-  --font-sans: "Geist", -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-  --font-display: "Space Grotesk", "Geist", -apple-system, "PingFang SC", sans-serif;
-  --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-display: var(--font-sans);
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Courier New", monospace;
   color-scheme: dark;
 }
 /* ---------- 主题令牌：浅色（暖白纸感） ---------- */
@@ -153,8 +153,8 @@ html.theming .nav-inner, html.theming .toast {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E");
 }
 
-/* ---------- floating glass nav ---------- */
-.nav { position: sticky; top: 0; z-index: 40; }
+/* ---------- floating glass nav（不吸顶：随页面滚走，刷新/滚动后停在文档流原位） ---------- */
+.nav { position: relative; z-index: 40; }
 .nav-inner {
   max-width: 1320px; margin: 14px auto 0; padding: 8px 8px 8px 20px;
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -276,26 +276,36 @@ html.theming .nav-inner, html.theming .toast {
 @keyframes spin { to { transform: rotate(360deg); } }
 .btn svg { display: block; }
 
-/* ---------- dashboard grid ---------- */
+/* ---------- dashboard grid（bento 瓷片布局） ---------- */
 .wrap { position: relative; z-index: 1; max-width: 1320px; margin: 0 auto; padding: 26px 20px 56px; }
-/* 三区仪表盘：左状态列（span3）/ 中帖子流（span5）/ 右节奏列（span4），
-   帖子与日历、热力图同屏可见；Hero 全宽横幅置于网格之上 */
-.dash { display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px; align-items: start; }
-.main { grid-column: span 5; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-.rail {
-  grid-column: span 3;
-  display: flex; flex-direction: column; gap: 14px; min-width: 0;
+/* 倒计时优先的双轨 bento：左轨「热力宽幅 + 帖子流拉通」，右轨「脉冲 → 日历 → 历史命中 → 系统状态」。
+   第一行回答核心问题（下次重置倒计时 + 实时脉冲）；2026-10 布局重设计：grid-template-areas 定义瓷片。 */
+.dash {
+  display: grid; gap: 14px;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-areas:
+    "hero hero hero hero hero hero hero hero pulse pulse pulse pulse"
+    "heat heat heat heat heat heat heat heat cal   cal   cal   cal"
+    "feed feed feed feed feed feed feed feed cal   cal   cal   cal"
+    "feed feed feed feed feed feed feed feed hist  hist  hist  hist"
+    "feed feed feed feed feed feed feed feed sys   sys   sys   sys";
 }
-.side {
-  grid-column: span 4;
-  display: flex; flex-direction: column; gap: 14px; min-width: 0;
-}
+.dash > .tile { display: flex; flex-direction: column; min-width: 0; }
+.dash > .tile > .card { flex: 1; display: flex; flex-direction: column; }
+.dash > .tile > .card > .card-core { flex: 1; }
+.t-hero { grid-area: hero; }
+.t-pulse { grid-area: pulse; }
+.t-heat { grid-area: heat; }
+.t-cal { grid-area: cal; align-self: start; }
+.t-feed { grid-area: feed; }
+.t-hist { grid-area: hist; }
+.t-sys { grid-area: sys; }
 @media (max-width: 1024px) {
-  .main, .rail, .side { grid-column: span 12; }
-  /* 单列堆叠顺序：帖子优先 → 日历/节奏 → 系统状态 */
-  .main { order: 1; }
-  .side { order: 2; }
-  .rail { order: 3; }
+  /* 单列堆叠顺序：倒计时 → 脉冲 → 帖子 → 日历 → 热力 → 运维区 */
+  .dash {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "hero" "pulse" "feed" "cal" "heat" "hist" "sys";
+  }
 }
 
 /* double-bezel card: outer shell + inner core */
@@ -326,43 +336,81 @@ html.theming .nav-inner, html.theming .toast {
 }
 .divider { height: 1px; background: var(--table-line); margin: 16px 0; }
 
-/* ---------- hero (slim full-width banner) ---------- */
-.hero { margin-bottom: 14px; }
-.hero-core { display: flex; align-items: center; gap: 16px; padding: 15px 22px; }
-.hero-glyph { flex-shrink: 0; width: 30px; height: 30px; color: var(--emerald); opacity: 0.9; }
-#hero.hit .hero-glyph { color: var(--hit-accent); animation: breathe 2.4s var(--ease) infinite; }
-.hero-text { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; flex: 1; }
-.hero-status {
-  font-family: var(--font-display); font-weight: 600;
-  font-size: 18px; letter-spacing: -0.02em; line-height: 1.25;
+/* ---------- 主瓷片：下次重置预测（倒计时 + 周期进度 + 事实行） ---------- */
+.hero-tile .card-core { display: flex; flex-direction: column; padding: 20px 26px 22px; }
+.hero-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.hero-top-spacer { flex: 1; }
+.hero-hit-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 600; color: var(--pill-hit-fg);
+  border: 1px solid var(--pill-hit-line); border-radius: 999px; padding: 5px 13px;
+  text-decoration: none;
+  transition: background-color 0.3s var(--ease), color 0.3s var(--ease);
 }
-.hero-sub { color: var(--muted); font-size: 12.5px; }
-.hero-link-row { display: flex; gap: 10px; flex-shrink: 0; }
+.hero-hit-link:hover { background: var(--mark-bg); color: var(--mark-fg); }
+.hero-hit-link svg { flex-shrink: 0; }
+.hero-count { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-top: 14px; }
+.hero-cd-label { color: var(--muted); font-size: 12.5px; }
+.hero-cd {
+  font-family: var(--font-display); font-weight: 700;
+  font-size: clamp(38px, 4.6vw, 56px); letter-spacing: -0.03em; line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+.hero-cd.over { color: var(--amber); }
+#hero.hit .hero-cd { color: var(--hit-accent); }
 #hero.hit .card-core {
   background: var(--hero-hit-core-grad);
   border-color: var(--hit-border);
   box-shadow: var(--hero-hit-glow);
 }
-@keyframes breathe {
-  0%, 100% { transform: scale(1); opacity: 0.85; }
-  50% { transform: scale(1.08); opacity: 1; }
+/* 周期进度条复用 .rhythm-bar（见重置节奏段），这里只补与倒计时的间距 */
+.hero-tile .rhythm-bar { margin-top: 12px; }
+.hero-facts {
+  display: flex; flex-wrap: wrap; gap: 8px 26px;
+  margin-top: auto; padding-top: 13px;
+  border-top: 1px solid var(--table-line);
+}
+.fact { display: inline-flex; align-items: baseline; gap: 7px; cursor: default; }
+.fact-val {
+  font-family: var(--font-display); font-weight: 600; font-size: 14.5px;
+  font-variant-numeric: tabular-nums;
 }
 .swap-in { animation: swapIn 0.6s var(--ease); }
 @keyframes swapIn { from { opacity: 0; transform: translateY(8px); } }
 
-/* ---------- stats ---------- */
-.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+/* ---------- 实时脉冲瓷片 ---------- */
+.pulse-core { display: flex; flex-direction: column; }
+.pulse-watch { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.pw-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.pw-acc { font-weight: 600; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pw-sub { color: var(--muted); font-size: 12px; }
+.pulse-rows { display: flex; flex-direction: column; margin-top: auto; }
+.pulse-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 10px 0; }
+.pulse-row + .pulse-row { border-top: 1px solid var(--table-line); }
+
+/* ---------- 热力宽幅瓷片（GitHub 风格：方格 + 标签居左，命中汇总居右） ---------- */
+.heat-body { display: flex; align-items: center; gap: 22px; margin-top: 10px; min-width: 0; }
+.rhythm-heat .hm-label { fill: var(--faint); font-size: 0.45px; letter-spacing: 0.02px; }
+.heat-side { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 12px; flex-shrink: 0; }
+.heat-total { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; cursor: default; }
+.heat-total-num {
+  font-family: var(--font-display); font-weight: 700; font-size: 34px;
+  letter-spacing: -0.03em; line-height: 1; font-variant-numeric: tabular-nums;
+  color: var(--hit-accent);
+}
+.heat-total-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; color: var(--faint); }
+
+/* ---------- 系统状态瓷片：数据源 / 通知渠道 / AI 能力，检查日志附底 ---------- */
+.sys-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; align-items: start; }
+.sys-col { min-width: 0; }
+.sys-col-log { border-top: 1px solid var(--table-line); padding-top: 14px; }
+
+/* ---------- stats（实时脉冲瓷片行内数字） ---------- */
 .stat-num {
   font-family: var(--font-display); font-weight: 700; font-size: 27px;
   letter-spacing: -0.03em; line-height: 1.1; font-variant-numeric: tabular-nums;
 }
 .stat-num.alert { color: var(--hit-accent); }
-.stat-num.bump { animation: bump 0.55s var(--ease); display: inline-block; }
-@keyframes bump {
-  0% { transform: scale(1); }
-  40% { transform: scale(1.12); }
-  100% { transform: scale(1); }
-}
 .stat-label {
   font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em;
   text-transform: uppercase; color: var(--faint); margin-top: 3px;
@@ -476,8 +524,9 @@ html.theming .nav-inner, html.theming .toast {
 .count-line .cd-sub { font-family: var(--font-mono); font-size: 10.5px; color: var(--faint); }
 .count-line.over .cd-sub { width: 100%; }
 
-/* GitHub 风格热力图：26 周 × 7 天（UTC 日计数），色阶随主题令牌；today 描边标记 */
-.rhythm-heat { width: 100%; height: auto; display: block; margin-top: 12px; }
+/* GitHub 风格热力图：26 周 × 7 天（UTC 日计数），方形格子等比缩放，色阶随主题令牌；
+   月份/星期标签为 SVG 文本（.hm-label），today 描边标记 */
+.rhythm-heat { display: block; width: 100%; max-width: 620px; height: auto; }
 .rhythm-heat .hm-0 { fill: var(--hm-0); }
 .rhythm-heat .hm-1 { fill: var(--hm-1); }
 .rhythm-heat .hm-2 { fill: var(--hm-2); }
@@ -770,10 +819,11 @@ mark {
 
 .empty { color: var(--faint); font-size: 13px; border: 1px dashed var(--line); border-radius: 18px; padding: 20px; text-align: center; }
 
-/* ---------- rail: compact history ---------- */
+/* ---------- 历史命中 / 检查日志（宽瓷片行式列表） ---------- */
 .hlist { display: flex; flex-direction: column; }
-/* 右栏内容限高滚动：保证右栏矮于左栏，粘性定位始终有行程 */
-.rail .scroll-y { overflow-y: auto; max-height: 250px; overscroll-behavior: contain; }
+/* 瓷片内限高滚动：历史命中与检查日志过长时内部滚动，不把 bento 行无限撑高 */
+.t-hist .scroll-y { overflow-y: auto; max-height: 250px; overscroll-behavior: contain; }
+.t-sys .scroll-y { overflow-y: auto; max-height: 200px; overscroll-behavior: contain; }
 .hrow {
   display: flex; align-items: center; gap: 10px;
   padding: 8px 2px; text-decoration: none; min-width: 0;
@@ -784,15 +834,14 @@ mark {
 .h-time { font-family: var(--font-mono); font-size: 11px; color: var(--faint); flex-shrink: 0; font-variant-numeric: tabular-nums; }
 .h-text {
   flex: 1; min-width: 0; font-size: 12.5px; color: var(--muted);
-  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
-  overflow: hidden; word-break: break-word;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   transition: color 0.3s var(--ease);
 }
 .hrow:hover .h-text { color: var(--text); }
 .h-text mark { padding: 0 3px; }
 .hrow .pill { flex-shrink: 0; }
-/* 窄状态列（span3）下历史命中改两行网格：时间与徽章同行，正文独占整行，避免正文被挤成竖排字母 */
-.rail .hrow {
+/* 右栏窄瓷片（span4）下历史命中改两行网格：时间与徽章同行，正文独占整行，避免正文被挤成竖排字母 */
+.t-hist .hrow {
   display: grid;
   grid-template-columns: 1fr auto;
   grid-template-areas:
@@ -801,9 +850,12 @@ mark {
   row-gap: 3px;
   align-items: center;
 }
-.rail .h-time { grid-area: time; }
-.rail .hrow .pill { grid-area: pill; justify-self: end; }
-.rail .h-text { grid-area: text; }
+.t-hist .h-time { grid-area: time; }
+.t-hist .hrow .pill { grid-area: pill; justify-self: end; }
+.t-hist .h-text {
+  grid-area: text; white-space: normal; word-break: break-word;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+}
 .hempty { color: var(--faint); font-size: 12px; padding: 6px 2px 2px; }
 
 /* ---------- 检查日志：紧凑列表 + 分页 ---------- */
@@ -811,10 +863,9 @@ mark {
 .log-head .sub-title { margin-bottom: 0; }
 .loglist { display: flex; flex-direction: column; }
 .logrow { display: flex; align-items: center; gap: 8px; padding: 6px 2px; font-size: 11.5px; min-width: 0; }
-.rail .logrow, .rail .log-stat { font-size: 11px; }
-/* 窄状态列下统计文本放不下：时间+来源一行，统计换行右对齐 */
-.rail .logrow { flex-wrap: wrap; }
-.rail .log-time + .log-src + .log-stat { flex-basis: 100%; text-align: right; }
+/* 系统状态瓷片右栏只有半幅宽：时间+来源一行，统计换行右对齐，避免 nowrap 溢出裁切 */
+.sys-col-log .logrow { flex-wrap: wrap; row-gap: 2px; }
+.sys-col-log .log-time + .log-src + .log-stat { flex-basis: 100%; text-align: right; }
 .logrow + .logrow { border-top: 1px solid var(--table-line); }
 .log-time { font-family: var(--font-mono); font-size: 11px; color: var(--faint); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .log-src { font-family: var(--font-mono); font-size: 12px; flex-shrink: 0; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -881,10 +932,17 @@ mark {
   .drop-trigger { padding: 0 10px; gap: 5px; }
   .seg-item.icon-only { padding: 0 8px; }
   .btn { padding: 6px 6px 6px 12px; font-size: 12px; gap: 8px; }
-  .stats { grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .stat-num { font-size: 22px; }
   .card-core { padding: 16px; }
-  .hero-core { padding: 16px; }
+  .hero-cd { font-size: 34px; }
+  .hero-count { gap: 10px; }
+  /* 热力图窄屏纵向堆叠：格子仍为方形，SVG 标签隐藏，汇总与图例横排 */
+  .heat-body { flex-direction: column; align-items: stretch; gap: 12px; }
+  .rhythm-heat { max-width: 100%; }
+  .rhythm-heat .hm-label { display: none; }
+  .heat-side { margin-left: 0; flex-direction: row; align-items: center; justify-content: space-between; }
+  .heat-total { flex-direction: row; align-items: baseline; gap: 8px; }
+  .heat-total-num { font-size: 26px; }
   /* 登录弹窗移动端适配：输入 16px 起（防 iOS 聚焦自动放大）、边距收紧、按钮双列撑满 */
   .auth-mask { padding: 16px; }
   .auth-input { font-size: 16px; }

@@ -1,5 +1,7 @@
 /* 应用装配：数据刷新主循环（60s 轮询 + 手动立即检查）、布局组装。
-   右栏卡片入场动画用 React Bits 的 AnimatedContent，实时统计数字用 CountUp。 */
+   布局为「倒计时优先」的 bento 网格：先回答核心问题（下次重置倒计时），再是证据区
+   （26 周热力 + 重置日历）与信号区（帖子流，首屏可见），底部为运维区（历史命中 + 系统状态）。
+   瓷片入场动画用 React Bits 的 AnimatedContent，实时统计数字用 CountUp。 */
 
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -14,8 +16,7 @@ import { Nav } from "./components/Nav";
 import AnimatedContent from "./components/reactbits/AnimatedContent";
 import { CalendarSection } from "./features/calendar/Calendar";
 import { Feed } from "./features/feed/Feed";
-import { Hero } from "./features/hero/Hero";
-import { HitHistory, LiveStats, PollLog, RhythmCard, Sources } from "./features/sidebar/Sidebar";
+import { HeatTile, HitHistory, NextResetCard, PulseCard, SystemCard } from "./features/overview/Overview";
 
 function Panel() {
   const { t } = useTranslation();
@@ -74,57 +75,33 @@ function Panel() {
       <div className="grain" aria-hidden />
       <Nav status={status} onCheckDone={() => void refresh()} />
       <div className="wrap">
-        {/* 三区仪表盘：Hero 全宽横幅 → 左状态列 / 中帖子流（首屏主体）/ 右节奏列 */}
-        <Hero status={status} />
+        {/* bento 网格：grid-template-areas 定义七个瓷片；帖子流（t-feed）保持首屏可见 */}
         <div className="dash">
-          <aside className="rail">
-            <div className="card">
-              <div className="card-core">
-                <AnimatedContent distance={24} duration={0.6}>
-                  <LiveStats status={status} />
-                </AnimatedContent>
-              </div>
-            </div>
-            {/* 节奏卡（倒计时 + 26 周热力图）紧随实时统计：长期节奏首屏可见，不沉到页面底部 */}
-            <div className="card">
-              <div className="card-core">
-                <AnimatedContent distance={24} duration={0.6} delay={0.1}>
-                  <RhythmCard stats={stats} />
-                </AnimatedContent>
-              </div>
-            </div>
-            <div className="card">
-              <div className="card-core">
-                <AnimatedContent distance={24} duration={0.6} delay={0.2}>
-                  <Sources status={status} />
-                </AnimatedContent>
-              </div>
-            </div>
-            <div className="card">
-              <div className="card-core">
-                <AnimatedContent distance={24} duration={0.6} delay={0.3}>
-                  <HitHistory hits={hits} />
-                </AnimatedContent>
-              </div>
-            </div>
-            <div className="card">
-              <div className="card-core">
-                <AnimatedContent distance={24} duration={0.6} delay={0.4}>
-                  <PollLog polls={polls} />
-                </AnimatedContent>
-              </div>
-            </div>
-          </aside>
-          <main className="main">
-            <Feed tweets={tweets} mirror={status?.avatar_mirror} />
-          </main>
-          <aside className="side">
+          <AnimatedContent className="tile t-hero" distance={24} duration={0.6}>
+            <NextResetCard status={status} stats={stats} />
+          </AnimatedContent>
+          <AnimatedContent className="tile t-pulse" distance={24} duration={0.6} delay={0.08}>
+            <PulseCard status={status} />
+          </AnimatedContent>
+          <AnimatedContent className="tile t-heat" distance={24} duration={0.6} delay={0.12}>
+            <HeatTile stats={stats} />
+          </AnimatedContent>
+          <AnimatedContent className="tile t-cal" distance={24} duration={0.6} delay={0.16}>
             <div className="card">
               <div className="card-core">
                 <CalendarSection tick={calTick} />
               </div>
             </div>
-          </aside>
+          </AnimatedContent>
+          <AnimatedContent className="tile t-feed" distance={24} duration={0.6} delay={0.1}>
+            <Feed tweets={tweets} mirror={status?.avatar_mirror} />
+          </AnimatedContent>
+          <AnimatedContent className="tile t-hist" distance={24} duration={0.6} delay={0.2}>
+            <HitHistory hits={hits} />
+          </AnimatedContent>
+          <AnimatedContent className="tile t-sys" distance={24} duration={0.6} delay={0.24}>
+            <SystemCard status={status} polls={polls} />
+          </AnimatedContent>
         </div>
         <Footer status={status} />
       </div>
