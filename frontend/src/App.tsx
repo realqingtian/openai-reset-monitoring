@@ -34,8 +34,8 @@ function Panel() {
     try {
       const [st, tw, ht, pl, stt] = await Promise.all([
         j<Status>("/api/status"),
-        j<Tweet[]>("/api/tweets"),
-        j<Tweet[]>("/api/hits?limit=20"),
+        j<Tweet[]>("/api/tweets?limit=10"),
+        j<Tweet[]>("/api/hits?limit=10"),
         j<Poll[]>("/api/polls?limit=200"),
         j<Stats>("/api/stats"),
       ]);
@@ -71,27 +71,31 @@ function Panel() {
     <div className="editorial-panel">
       <Nav status={status} onCheckDone={() => void refresh()} view={view} onViewChange={setView} />
       <main className="wrap">
-        <div className="reading-layout">
+        <MonitorIntro status={status} view={view} />
+        <div className={"reading-layout" + (view !== "system" ? " timeline-layout" : "")}>
           <div className="reading-main">
-            <MonitorIntro status={status} view={view} />
-            <AnimatedContent distance={12} duration={0.4}>
-              <section hidden={view !== "feed"} aria-label={t("navFeed")}>
+            <AnimatedContent className="reading-content" distance={12} duration={0.4}>
+              <section hidden={view !== "feed"} aria-label={t("navFeed")} className="posts-main">
                 {featured ? (
                   <TweetCard key={featured.id} tw={featured} featured mirror={status?.avatar_mirror} />
                 ) : (
                   <div className="featured-empty"><h2>{t("featuredEmptyTitle")}</h2><p>{t("hitEmpty")}</p></div>
                 )}
-                <div className="reading-tabs" role="group" aria-label={t("feedView")}>
-                  <button type="button" aria-pressed={!history} onClick={() => setHistory(false)}>{t("recentPosts")}</button>
-                  <button type="button" aria-pressed={history} onClick={() => setHistory(true)}>{t("hitHistory")}</button>
-                  <span className="reading-count">{history ? hits.length : tweets.length}</span>
+                <div className="feed-surface">
+                  <div className="reading-tabs" role="group" aria-label={t("feedView")}>
+                    <button type="button" aria-pressed={!history} onClick={() => setHistory(false)}>{t("recentPosts")}</button>
+                    <button type="button" aria-pressed={history} onClick={() => setHistory(true)}>{t("hitHistory")}</button>
+                    <span className="feed-scroll-hint">{t("postsScrollHint")}</span>
+                  </div>
+                  <Feed key={history ? "history" : "recent"} tweets={history ? hits : tweets} mirror={status?.avatar_mirror} history={history} windowHours={auth.loggedIn ? status?.lookback_hours ?? 24 : Math.min(status?.lookback_hours ?? 24, 24)} />
                 </div>
-                <Feed key={history ? "history" : "recent"} tweets={history ? hits : tweets} mirror={status?.avatar_mirror} history={history} />
               </section>
-              <section hidden={view !== "rhythm"} aria-label={t("navRhythm")} className="rhythm-main">
+              <section hidden={view !== "rhythm"} aria-label={t("navRhythm")} className="rhythm-main posts-main">
                 <HeatTile stats={stats} />
-                <h2 className="section-heading">{t("hitHistory")}</h2>
-                <Feed tweets={hits} mirror={status?.avatar_mirror} history />
+                <div className="feed-surface rhythm-history">
+                  <h2 className="section-heading">{t("hitHistory")}</h2>
+                  <Feed tweets={hits} mirror={status?.avatar_mirror} history />
+                </div>
               </section>
               <section hidden={view !== "system"} aria-label={t("sysTitle")} className="system-main">
                 <SystemCard status={status} polls={polls} />

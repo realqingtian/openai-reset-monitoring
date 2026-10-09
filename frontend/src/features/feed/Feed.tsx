@@ -1,6 +1,6 @@
 /* 公告与帖子共用安全渲染和翻译操作，避免主公告与列表出现行为差异。 */
 
-import { useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError, j } from "../../api/client";
 import type { Tweet } from "../../api/types";
@@ -185,40 +185,119 @@ export function TweetCard({ tw, isNew = false, freshIdx = 0, mirror, featured = 
 const seenIds = new Set<string>();
 const SEEN_FIRST = "__first_render__";
 
-export function Feed({ tweets, mirror, history = false }: { tweets: Tweet[]; mirror?: string | null; history?: boolean }) {
+const PAGE_SIZE = 10;
+
+function mergeTweets(...pages: Tweet[][]): Tweet[] {
+  const unique = new Map<string, Tweet>();
+  // 新页优先，避免旧缓存覆盖刷新后的命中与推送状态。
+  pages.forEach((page) => page.forEach((tweet) => { if (!unique.has(tweet.id)) unique.set(tweet.id, tweet); }));
+  return [...unique.values()].sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id));
+}
+
+export function Feed({ tweets, mirror, history = false, windowHours = 24 }: {
+  tweets: Tweet[]; mirror?: string | null; history?: boolean; windowHours?: number;
+}) {
   const { t } = useTranslation();
-  const [expanded, setExpanded] = useState(false);
-  const visibleTweets = expanded ? tweets : tweets.slice(0, 3);
+  const [items, setItems] = useState(() => tweets.slice(0, PAGE_SIZE));
+  const [hasMore, setHasMore] = useState(tweets.length >= PAGE_SIZE);
+  const [loading, setLoading] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [now, setNow] = useState(Date.now);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const loadedOlder = useRef(false);
+  const requestRef = useRef<AbortController | null>(null);
+  const previousWindow = useRef(windowHours);
+
+  useEffect(() => {
+    const changedWindow = previousWindow.current !== windowHours;
+    previousWindow.current = windowHours;
+    if (changedWindow) {
+      requestRef.current?.abort();
+      requestRef.current = null;
+      loadedOlder.current = false;
+      setLoading(false);
+      setFailed(false);
+    }
+    const head = tweets.slice(0, PAGE_SIZE);
+    setItems((old) => loadedOlder.current ? mergeTweets(head, old) : head);
+    if (!loadedOlder.current) setHasMore(head.length === PAGE_SIZE);
+  }, [tweets, windowHours]);
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 60000);
+    return () => { clearInterval(timer); requestRef.current?.abort(); };
+  }, []);
+
+  // 时间窗口缩小（例如退出登录）时立即隐藏窗口外缓存，避免旧页继续展示。
+  const cutoff = now - windowHours * 3600e3;
+  const visibleTweets = history ? items : items.filter((tweet) => Date.parse(tweet.created_at) >= cutoff);
+
+  const loadMore = useCallback(async () => {
+    const last = items[items.length - 1];
+    if (!hasMore || !last || requestRef.current) return;
+    const controller = new AbortController();
+    requestRef.current = controller;
+    setLoading(true);
+    setFailed(false);
+    const query = new URLSearchParams({ limit: String(PAGE_SIZE), before: last.id });
+    if (!history) query.set("hours", String(windowHours));
+    try {
+      const rows = await j<Tweet[]>(`/api/${history ? "hits" : "tweets"}?${query}`, { signal: controller.signal });
+      if (controller.signal.aborted) return;
+      loadedOlder.current = true;
+      setItems((old) => mergeTweets(old, rows));
+      setHasMore(rows.length === PAGE_SIZE);
+    } catch {
+      if (!controller.signal.aborted) setFailed(true);
+    } finally {
+      if (requestRef.current === controller) {
+        requestRef.current = null;
+        setLoading(false);
+      }
+    }
+  }, [hasMore, history, items, windowHours]);
+
+  useEffect(() => {
+    if (!hasMore || loading || failed || !sentinelRef.current) return;
+    const media = matchMedia("(max-width: 820px)");
+    let observer: IntersectionObserver;
+    const observe = () => {
+      observer?.disconnect();
+      observer = new IntersectionObserver((entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) void loadMore();
+      }, { root: media.matches ? null : scrollRef.current, rootMargin: "0px 0px 80px 0px" });
+      if (sentinelRef.current) observer.observe(sentinelRef.current);
+    };
+    observe();
+    media.addEventListener("change", observe);
+    return () => { observer.disconnect(); media.removeEventListener("change", observe); };
+  }, [failed, hasMore, loading, loadMore]);
+
   const isFirstRender = !seenIds.has(SEEN_FIRST);
-  const freshIds = isFirstRender
-    ? new Set<string>()
-    : new Set(tweets.filter((tw) => !seenIds.has(tw.id)).map((tw) => tw.id));
+  const freshIds = isFirstRender ? new Set<string>() : new Set(visibleTweets.filter((tw) => !seenIds.has(tw.id)).map((tw) => tw.id));
   seenIds.add(SEEN_FIRST);
-  tweets.forEach((tw) => seenIds.add(tw.id));
-  const freshIdx = new Map<string, number>();
-  let i = 0;
-  tweets.forEach((tw) => {
-    if (freshIds.has(tw.id)) freshIdx.set(tw.id, i++);
-  });
+  visibleTweets.forEach((tw) => seenIds.add(tw.id));
 
   return (
-    <>
-      <div className="time-wrap">
-        <div className="tlist">
-          {tweets.length ? (
-            visibleTweets.map((tw) => (
-              <TweetCard key={tw.id} tw={tw} isNew={freshIds.has(tw.id)} freshIdx={freshIdx.get(tw.id) ?? 0} mirror={mirror} />
-            ))
-          ) : (
-            <div className="empty">{t(history ? "hitEmpty" : "feedEmpty")}</div>
-          )}
-        </div>
-        {tweets.length > 3 && (
-          <button className="feed-more" type="button" aria-expanded={expanded} onClick={() => setExpanded((open) => !open)}>
-            {t(expanded ? "collapsePosts" : "showMorePosts", { n: tweets.length - 3 })}
-          </button>
-        )}
+    <div className="time-wrap feed-scroll" ref={scrollRef} tabIndex={0} role="region" aria-label={t(history ? "hitHistory" : "recentPosts")}>
+      <div className="tlist">
+        {visibleTweets.length ? visibleTweets.map((tw, index) => (
+          <TweetCard key={tw.id} tw={tw} isNew={freshIds.has(tw.id)} freshIdx={index} mirror={mirror} />
+        )) : <div className="empty">{t(history ? "hitEmpty" : "feedEmpty")}</div>}
       </div>
-    </>
+      {visibleTweets.length > 0 && (
+        <div className="feed-pagination">
+          <span className="feed-page-status" role="status">{t("postsLoaded", { n: visibleTweets.length })}</span>
+          {failed && <span className="feed-page-error" role="alert">{t("postsLoadFail")}</span>}
+          {hasMore ? (
+            <button className="feed-more" type="button" disabled={loading} onClick={() => void loadMore()}>
+              {t(loading ? "postsLoading" : failed ? "postsRetry" : "postsLoadMore")}
+            </button>
+          ) : <span className="feed-page-end">{t("postsEnd")}</span>}
+          <div className="feed-sentinel" ref={sentinelRef} aria-hidden />
+        </div>
+      )}
+    </div>
   );
 }
