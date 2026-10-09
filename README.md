@@ -368,7 +368,7 @@ frontend/             # React 独立前端工程（Vite + React 19 + TS，bun �
 ├── src/api/          # 接口层：统一包体/JWT 会话/后端出参类型
 ├── src/components/   # Nav / Footer / LoginDialog + React Bits 动画组件（CountUp / AnimatedContent）
 ├── src/context/      # Auth / Theme / Toast 跨模块状态
-├── src/features/     # 业务区块：hero / feed / sidebar
+├── src/features/     # 业务区块：overview / feed / calendar
 ├── src/i18n/         # i18next 初始化 + locales/{zh,en}.ts
 ├── src/styles/       # panel.css（全量样式：主题令牌 / 布局 / 组件 / 动效）
 ├── Caddyfile         # 生产入口：静态托管 + /api 反代到后端容器（SPA 回退、缓存策略）

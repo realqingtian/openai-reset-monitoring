@@ -75,15 +75,15 @@
 ### R1 通知历史面板 📋 已规划 ｜ P1
 
 - **背景**：`notify_log` 表已记录每次推送的渠道、时间、成功/失败与错误信息，但目前只有补推逻辑在读它，无 API、无前端展示——「按渠道补推」机制对用户不可见。
-- **方案要点**：新增只读接口（如 `GET /api/notify-logs?limit=`）+ 侧栏一张卡；沿用检查日志卡的分页与徽章样式。
-- **涉及模块**：`app/api/`、`app/services/`、`app/repositories/notify_retry.py`（复用查询）、`frontend/src/features/sidebar/`、i18n 词表。
+- **方案要点**：新增只读接口（如 `GET /api/notify-logs?limit=`）+ 右栏一张卡；沿用检查日志卡的分页与徽章样式。
+- **涉及模块**：`app/api/`、`app/services/`、`app/repositories/notify_retry.py`（复用查询）、`frontend/src/features/overview/`、i18n 词表。
 - **验收**：面板能看到近 N 次推送的渠道结果与失败原因；中英文案齐备；`check.sh` + 前端三件套通过。
 
 ### R2 统计按账号拆分 📋 已规划 ｜ P1
 
 - **背景**：`MONITOR_ACCOUNTS` 支持多账号，但 `/api/stats` 无 account 维度，多账号下热力图与「下次重置预测」混算平均间隔，预测失真（单账号无影响）。
 - **方案要点**：`/api/stats` 增加 `account` 查询参数（`Query` 校验），默认合并行为不变；前端节奏卡加账号切换（仅多账号时显示）。
-- **涉及模块**：`app/api/stats.py`、`app/services/stats.py`、`frontend/src/features/sidebar/RhythmCard.tsx`。
+- **涉及模块**：`app/api/stats.py`、`app/services/stats.py`、`frontend/src/features/overview/Overview.tsx`。
 - **验收**：多账号下可分别查看各账号节奏；单账号 UI 无变化。
 
 ### R3 规则热更新（面板内编辑）📋 已规划 ｜ P1
