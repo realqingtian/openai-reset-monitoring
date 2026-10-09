@@ -3,7 +3,7 @@
 import json
 from typing import Any, Optional
 
-from sqlalchemy import select, update
+from sqlalchemy import and_, or_, select, update
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from app.core.text import content_hash
@@ -68,6 +68,33 @@ async def matched_tweets(limit: int = 100) -> list[dict[str, Any]]:
             .scalars()
             .all()
         )
+        return [to_dict(r) for r in rows]
+
+
+async def tweet_page(
+    limit: Optional[int], before: Optional[str], since: Optional[str] = None, matched: bool = False
+) -> list[dict[str, Any]]:
+    """用发布时间与 ID 共同定位下一页，避免同秒发帖或新帖插入导致重复、漏帖。"""
+    async with session_factory() as s:
+        stmt = select(Tweet)
+        if since is not None:
+            stmt = stmt.where(Tweet.created_at >= since)
+        if matched:
+            stmt = stmt.where(Tweet.matched == 1)
+        if before is not None:
+            anchor = await s.get(Tweet, before)
+            if anchor is None:
+                return []
+            stmt = stmt.where(
+                or_(
+                    Tweet.created_at < anchor.created_at,
+                    and_(Tweet.created_at == anchor.created_at, Tweet.id < anchor.id),
+                )
+            )
+        stmt = stmt.order_by(Tweet.created_at.desc(), Tweet.id.desc())
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        rows = (await s.execute(stmt)).scalars().all()
         return [to_dict(r) for r in rows]
 
 
