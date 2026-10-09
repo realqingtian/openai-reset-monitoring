@@ -1,7 +1,5 @@
-/* 应用装配：数据刷新主循环（60s 轮询 + 手动立即检查）、布局组装。
-   布局为「倒计时优先」的 bento 网格：先回答核心问题（下次重置倒计时），再是证据区
-   （26 周热力 + 重置日历）与信号区（帖子流，首屏可见），底部为运维区（历史命中 + 系统状态）。
-   瓷片入场动画用 React Bits 的 AnimatedContent，实时统计数字用 CountUp。 */
+/* 公告阅读布局：帖子优先，节奏与日历作为旁栏上下文。
+   保留同一套数据刷新与权限链路，避免视觉改版改变监控行为。 */
 
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -12,16 +10,18 @@ import { ThemeProvider } from "./context/ThemeContext";
 import { ToastProvider, useToast } from "./context/ToastContext";
 import { LangModeProvider } from "./i18n/LangModeContext";
 import { Footer } from "./components/Footer";
-import { Nav } from "./components/Nav";
+import { Nav, type PanelView } from "./components/Nav";
 import AnimatedContent from "./components/reactbits/AnimatedContent";
 import { CalendarSection } from "./features/calendar/Calendar";
-import { Feed } from "./features/feed/Feed";
-import { HeatTile, HitHistory, NextResetCard, PulseCard, SystemCard } from "./features/overview/Overview";
+import { Feed, TweetCard } from "./features/feed/Feed";
+import { HeatTile, MonitorIntro, NextResetCard, PulseCard, SourcesCol, SystemCard } from "./features/overview/Overview";
 
 function Panel() {
   const { t } = useTranslation();
   const { toast } = useToast();
   const auth = useAuth();
+  const [view, setView] = useState<PanelView>("feed");
+  const [history, setHistory] = useState(false);
   const [status, setStatus] = useState<Status | null>(null);
   const [tweets, setTweets] = useState<Tweet[]>([]);
   const [hits, setHits] = useState<Tweet[]>([]);
@@ -65,47 +65,49 @@ function Panel() {
     if (status?.site_name) document.title = status.site_name;
   }, [status?.site_name]);
 
+  const featured = status?.latest_hit ?? hits[0] ?? null;
+
   return (
-    <>
-      <div className="orbs" aria-hidden>
-        <div className="orb orb-violet" />
-        <div className="orb orb-emerald" />
-        <div className="orb orb-blue" />
-      </div>
-      <div className="grain" aria-hidden />
-      <Nav status={status} onCheckDone={() => void refresh()} />
-      <div className="wrap">
-        {/* bento 网格：grid-template-areas 定义七个瓷片；帖子流（t-feed）保持首屏可见 */}
-        <div className="dash">
-          <AnimatedContent className="tile t-hero" distance={24} duration={0.6}>
+    <div className="editorial-panel">
+      <Nav status={status} onCheckDone={() => void refresh()} view={view} onViewChange={setView} />
+      <main className="wrap">
+        <div className="reading-layout">
+          <div className="reading-main">
+            <MonitorIntro status={status} view={view} />
+            <AnimatedContent distance={12} duration={0.4}>
+              <section hidden={view !== "feed"} aria-label={t("navFeed")}>
+                {featured ? (
+                  <TweetCard key={featured.id} tw={featured} featured mirror={status?.avatar_mirror} />
+                ) : (
+                  <div className="featured-empty"><h2>{t("featuredEmptyTitle")}</h2><p>{t("hitEmpty")}</p></div>
+                )}
+                <div className="reading-tabs" role="group" aria-label={t("feedView")}>
+                  <button type="button" aria-pressed={!history} onClick={() => setHistory(false)}>{t("recentPosts")}</button>
+                  <button type="button" aria-pressed={history} onClick={() => setHistory(true)}>{t("hitHistory")}</button>
+                  <span className="reading-count">{history ? hits.length : tweets.length}</span>
+                </div>
+                <Feed key={history ? "history" : "recent"} tweets={history ? hits : tweets} mirror={status?.avatar_mirror} history={history} />
+              </section>
+              <section hidden={view !== "rhythm"} aria-label={t("navRhythm")} className="rhythm-main">
+                <HeatTile stats={stats} />
+                <h2 className="section-heading">{t("hitHistory")}</h2>
+                <Feed tweets={hits} mirror={status?.avatar_mirror} history />
+              </section>
+              <section hidden={view !== "system"} aria-label={t("sysTitle")} className="system-main">
+                <SystemCard status={status} polls={polls} />
+              </section>
+            </AnimatedContent>
+          </div>
+          <aside className="reading-aside" aria-label={t("navRhythm")}>
             <NextResetCard status={status} stats={stats} />
-          </AnimatedContent>
-          <AnimatedContent className="tile t-pulse" distance={24} duration={0.6} delay={0.08}>
-            <PulseCard status={status} />
-          </AnimatedContent>
-          <AnimatedContent className="tile t-heat" distance={24} duration={0.6} delay={0.12}>
-            <HeatTile stats={stats} />
-          </AnimatedContent>
-          <AnimatedContent className="tile t-cal" distance={24} duration={0.6} delay={0.16}>
-            <div className="card">
-              <div className="card-core">
-                <CalendarSection tick={calTick} />
-              </div>
-            </div>
-          </AnimatedContent>
-          <AnimatedContent className="tile t-feed" distance={24} duration={0.6} delay={0.1}>
-            <Feed tweets={tweets} mirror={status?.avatar_mirror} />
-          </AnimatedContent>
-          <AnimatedContent className="tile t-hist" distance={24} duration={0.6} delay={0.2}>
-            <HitHistory hits={hits} />
-          </AnimatedContent>
-          <AnimatedContent className="tile t-sys" distance={24} duration={0.6} delay={0.24}>
-            <SystemCard status={status} polls={polls} />
-          </AnimatedContent>
+            <section className="aside-calendar"><CalendarSection tick={calTick} /></section>
+            <section className="aside-system"><SourcesCol status={status} /></section>
+          </aside>
         </div>
+        <PulseCard status={status} />
         <Footer status={status} />
-      </div>
-    </>
+      </main>
+    </div>
   );
 }
 

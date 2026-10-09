@@ -1,13 +1,11 @@
-/* 概览区瓷片（bento tiles）：下次重置倒计时（原 Hero + 节奏卡合并，回答「下次重置何时来」）、
-   实时脉冲（监控账号 + 24h 统计）、命中热力宽幅横条（26 周热力图从窄栏升为全宽）、
-   系统状态（数据源 / 通知渠道 / AI 能力 + 检查日志左右分栏）。 */
+/* 阅读面板的节奏摘要、统计与系统详情：仅展示接口状态，不推断官方重置承诺。 */
 
 import { memo, useCallback, useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { j } from "../../api/client";
 import type { Poll, Stats, Status, Tweet } from "../../api/types";
-import { ago, esc, fmt, fmtLocal, fmtUTC, hl, localOffsetLabel, safeUrl } from "../../utils/format";
+import { ago, esc, fmt, hl, localOffsetLabel, safeUrl } from "../../utils/format";
 import { useLang } from "../../i18n/useLang";
 import type { Lang } from "../../utils/format";
 import CountUp from "../../components/reactbits/CountUp";
@@ -35,133 +33,80 @@ function fmtHours(h: number, lang: Lang): string {
   return lang === "zh" ? Math.round(h) + " 小时" : Math.round(h) + " h";
 }
 
-/* ---------- 主瓷片：下次重置预测（倒计时 + 周期进度 + 关键事实行） ---------- */
+/* ---------- 阅读页标题与监控状态 ---------- */
+
+export function MonitorIntro({ status, view }: { status: Status | null; view: "feed" | "rhythm" | "system" }) {
+  const { t } = useTranslation();
+  const lang = useLang();
+  const sources = (status?.sources || []).filter((source) => source.enabled);
+  const usable = sources.filter((source) => source.configured);
+  const healthy = status?.demo || usable.some((source) => source.known && source.healthy);
+  const failed = usable.length > 0 && usable.every((source) => source.known && !source.healthy);
+  const state = !status ? "monitorLoading" : healthy ? "monitorHealthy" : failed ? "monitorFailed" : !usable.length ? "monitorUnconfigured" : "stWait";
+  const tone = healthy ? "ok" : failed ? "bad" : "warn";
+  const accounts = (status?.accounts || []).map((account) => "@" + account).join(lang === "zh" ? "、" : ", ");
+  return (
+    <div className="reading-intro">
+      <h1>{t(view === "feed" ? "readingTitle" : view === "rhythm" ? "navRhythm" : "sysTitle")}</h1>
+      <div className={"monitor-line " + tone}>
+        <span className={"dot " + tone} aria-hidden />
+        <span>{t("pulseWatch", { acc: accounts || "—" })}</span>
+        <span>·</span><span>{t(state)}</span>
+        <span className="monitor-last">{t("pulseLastCheck", { ago: ago(status?.last_poll_at, lang) })}</span>
+      </div>
+      <p>{t(view === "feed" ? "readingDescription" : view === "rhythm" ? "rhythmDescription" : "systemDescription")}</p>
+    </div>
+  );
+}
+
+/* ---------- 旁栏节奏：预测明确标注参考属性，逾期状态继续可见 ---------- */
 
 export function NextResetCard({ status, stats }: { status: Status | null; stats: Stats | null }) {
   const { t } = useTranslation();
   const lang = useLang();
   const now = useNow();
-  const hit = (status?.hit_count_24h ?? 0) > 0;
-
-  // 节奏状态机：距上次命中的进度 vs 平均间隔；越过预计点即「已逾期」态（琥珀），等待态每秒走动
   const avgMs = (stats?.avg_interval_hours ?? 0) * 3600e3;
   const lastMs = Date.parse(stats?.last_hit_at || "");
-  const hasCycle = !!stats?.total_hits && stats?.avg_interval_hours != null && avgMs > 0 && Number.isFinite(lastMs);
+  const hasCycle = !!stats?.total_hits && avgMs > 0 && Number.isFinite(lastMs);
   const expectedMs = lastMs + avgMs;
   const overdue = hasCycle && now > expectedMs;
-  const pct = hasCycle ? Math.min(100, ((now - lastMs) / avgMs) * 100) : 0;
+  const dateLabel = (ms: number) => new Intl.DateTimeFormat(lang === "zh" ? "zh-CN" : "en-US", {
+    month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false,
+  }).format(new Date(ms));
 
   return (
-    <div className={"card hero-tile" + (hit ? " hit" : "")} id="hero">
-      <div className="card-core hero-core">
-        <div className="hero-top">
-          <span className="eyebrow">
-            <span className={"pulse-dot " + (hit ? "red" : "green")} />
-            <span>{t("nextResetTitle")}</span>
-          </span>
-          {hasCycle && (
-            <span className={"state-pill " + (overdue ? "over" : "wait")}>
-              <span className="dot" aria-hidden />
-              {overdue ? t("rhythmStateOver") : t("rhythmStateWait")}
-            </span>
-          )}
-          <span className="hero-top-spacer" />
-          {hit && status?.latest_hit && (
-            <a className="hero-hit-link" href={safeUrl(status.latest_hit.url)} target="_blank" rel="noopener">
-              {t("viewHit")}
-              <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4.5 11.5 11.5 4.5M5.5 4.5h6v6" />
-              </svg>
-            </a>
-          )}
-        </div>
-        {hasCycle ? (
-          <>
-            <div
-              className="hero-count"
-              title={`UTC+0 ${fmtUTC(new Date(expectedMs).toISOString())} · ${localOffsetLabel()} ${fmtLocal(new Date(expectedMs).toISOString())}`}
-            >
-              <span className="hero-cd-label">{overdue ? t("rhythmCdOver") : t("rhythmCdWait")}</span>
-              <span className={"hero-cd" + (overdue ? " over" : "")}>
-                {fmtCountdown(overdue ? now - expectedMs : expectedMs - now, lang)}
-              </span>
-            </div>
-            <div
-              className={"rhythm-bar" + (overdue ? " over" : "")}
-              role="progressbar"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={Math.round(pct)}
-              title={t("rhythmNextTip")}
-            >
-              <div className="bar-track">
-                <div className="bar-fill" style={{ width: pct.toFixed(1) + "%" }} />
-              </div>
-              <div className="bar-meta">
-                <span>{overdue ? t("rhythmBeyond") : t("rhythmCycle")}</span>
-                <span className="pct">
-                  {overdue ? t("rhythmTimes", { n: ((now - lastMs) / avgMs).toFixed(1) }) : Math.round(pct) + "%"}
-                </span>
-              </div>
-            </div>
-          </>
-        ) : (
-          <div className="hero-count">
-            <span className="hero-cd-label">{t("rhythmNoForecast")}</span>
+    <section className="reset-summary" aria-label={t("nextResetTitle")}>
+      <div className="aside-heading"><h2>{t("navRhythm")}</h2>{status?.demo && <span className="badge-demo">{t("demoLabel")}</span>}</div>
+      {hasCycle ? (
+        <>
+          <div className="reset-expected" title={fmt(new Date(expectedMs).toISOString())}>{t("expectedAt", { time: dateLabel(expectedMs) })}</div>
+          <p className="reset-disclaimer">{t("predictionDisclaimer")}</p>
+          <div className={"reset-countdown" + (overdue ? " over" : "")}>
+            <span>{fmtCountdown(overdue ? now - expectedMs : expectedMs - now, lang)}</span>
+            <span className="reset-count-label">{t(overdue ? "rhythmCdOver" : "rhythmCdWait")}</span>
           </div>
-        )}
-        <div className="hero-facts">
-          <span className="fact" title={stats?.last_hit_at || ""}>
-            <span className="r-key">{t("rhythmLast")}</span>
-            <b className="fact-val">{ago(stats?.last_hit_at, lang)}</b>
-          </span>
-          <span className="fact" title={t("rhythmAvgTip")}>
-            <span className="r-key">{t("rhythmAvg")}</span>
-            <b className="fact-val">{stats?.avg_interval_hours != null ? fmtHours(stats.avg_interval_hours, lang) : "—"}</b>
-          </span>
-          <span className="fact" title={t("rhythmTotal", { n: stats?.total_hits ?? 0 })}>
-            <span className="r-key">{t("rhythmHits30")}</span>
-            <b className="fact-val">{stats ? String(stats.hits_30d) : "—"}</b>
-          </span>
-        </div>
-      </div>
-    </div>
+          {overdue && <p className="reset-overdue">{t("rhythmStateOver")}</p>}
+        </>
+      ) : <p className="reset-no-data">{t("rhythmNoForecast")}</p>}
+      <dl className="reset-facts">
+        <div><dt>{t("rhythmLast")}</dt><dd title={fmt(stats?.last_hit_at)}>{Number.isFinite(lastMs) ? dateLabel(lastMs) : "—"}</dd></div>
+        <div><dt>{t("rhythmAvg")}</dt><dd title={t("rhythmAvgTip")}>{stats?.avg_interval_hours != null ? fmtHours(stats.avg_interval_hours, lang) : "—"}</dd></div>
+      </dl>
+    </section>
   );
 }
 
-/* ---------- 实时脉冲：监控账号 + 最近检查 + 24h 三项统计 ---------- */
+/* ---------- 页末统计条：与公告阅读区分离，避免数字争夺首屏 ---------- */
 
 export function PulseCard({ status }: { status: Status | null }) {
   const { t } = useTranslation();
-  const lang = useLang();
-  const hit = (status?.hit_count_24h ?? 0) > 0;
-  const accs = (status?.accounts || []).map((a) => "@" + a).join(lang === "zh" ? "、" : ", ");
   return (
-    <div className="card">
-      <div className="card-core pulse-core">
-        <div className="sub-title">{t("liveStats")}</div>
-        <div className="pulse-watch">
-          <span className="pulse-dot green" />
-          <span className="pw-text">
-            <span className="pw-acc">{t("pulseWatch", { acc: accs || "@—" })}</span>
-            <span className="pw-sub">{t("pulseLastCheck", { ago: ago(status?.last_poll_at, lang) })}</span>
-          </span>
-        </div>
-        <div className="pulse-rows">
-          <div className="pulse-row">
-            <CountUp to={status?.tweets_24h ?? 0} duration={1} className="stat-num" />
-            <span className="stat-label">{t("statTweets")}</span>
-          </div>
-          <div className="pulse-row">
-            <CountUp to={status?.hit_count_24h ?? 0} duration={1} className={"stat-num" + (hit ? " alert" : "")} />
-            <span className="stat-label">{t("statHits")}</span>
-          </div>
-          <div className="pulse-row">
-            <span className="stat-num">{status ? status.poll_interval_minutes + " min" : "—"}</span>
-            <span className="stat-label">{t("statInterval")}</span>
-          </div>
-        </div>
-      </div>
+    <div className="reading-stats" aria-label={t("liveStats")}>
+      <span className="stats-heading">{t("liveStats")}</span>
+      <span><CountUp to={status?.tweets_24h ?? 0} duration={1} /> {t("statTweets")}</span>
+      <span><CountUp to={status?.hit_count_24h ?? 0} duration={1} /> {t("statHits")}</span>
+      <span>{status ? status.poll_interval_minutes + " min" : "—"} {t("statInterval")}</span>
+      {status?.demo && <span className="stats-note">{t("demoNote")}</span>}
     </div>
   );
 }
@@ -358,7 +303,7 @@ export function HeatTile({ stats }: { stats: Stats | null }) {
   return (
     <div className="card">
       <div className="card-core">
-        <div className="sub-title">{t("heatTitle")}</div>
+        <div className="aside-heading"><h2>{t("heatTitle")}</h2><span className="reset-disclaimer">{t("rhythmHits30")} · {stats?.hits_30d ?? "—"}</span></div>
         {stats?.daily_hits?.length ? (
           <RhythmHeatmap daily={stats.daily_hits} />
         ) : (
@@ -371,7 +316,7 @@ export function HeatTile({ stats }: { stats: Stats | null }) {
 
 /* ---------- 系统状态：数据源 / 通知渠道 / AI 能力 ｜ 检查日志（左右分栏） ---------- */
 
-function SourcesCol({ status }: { status: Status | null }) {
+export function SourcesCol({ status }: { status: Status | null }) {
   const { t } = useTranslation();
   const lang = useLang();
   const rows: ReactNode[] = [];
@@ -449,8 +394,11 @@ function SourcesCol({ status }: { status: Status | null }) {
 
   return (
     <>
+      <div className="sub-title">{t("notifyChannels")}</div>
+      <div className="npills">{ntf}</div>
+      <div className="divider" />
       <div className="sub-title">{t("dataSources")}</div>
-      <div id="srcRows">
+      <div className="source-rows">
         {rows.length ? rows : (
           <div className="srow">
             <span className="dot warn" />
@@ -459,9 +407,6 @@ function SourcesCol({ status }: { status: Status | null }) {
           </div>
         )}
       </div>
-      <div className="divider" />
-      <div className="sub-title">{t("notifyChannels")}</div>
-      <div className="npills">{ntf}</div>
       <div className="divider" />
       <div className="sub-title">{t("aiCap")}</div>
       <div className="npills">{aiPills}</div>

@@ -40,12 +40,16 @@ function SystemIcon() {
   );
 }
 
+export type PanelView = "feed" | "rhythm" | "system";
+
 interface NavProps {
+  view: PanelView;
+  onViewChange: (view: PanelView) => void;
   status: Status | null;
   onCheckDone: () => void;
 }
 
-export function Nav({ status, onCheckDone }: NavProps) {
+export function Nav({ status, onCheckDone, view, onViewChange }: NavProps) {
   const { t } = useTranslation();
   const lang = useLang();
   const { langMode, setLangMode } = useLangMode();
@@ -141,15 +145,22 @@ export function Nav({ status, onCheckDone }: NavProps) {
               <path d={BRAND_PATH} fillRule="nonzero" fill="currentColor" />
             </svg>
           </span>
-          <span className="pulse-dot green dim" />
           <span className="brand-name">{siteName}</span>
-          {status?.demo && <span className="badge-demo">DEMO</span>}
+          {status?.demo && <span className="badge-demo">{t("demoLabel")}</span>}
         </div>
+        <nav className="section-nav" aria-label={t("panelNavigation")}>
+          {(["feed", "rhythm", "system"] as const).map((item) => (
+            <button key={item} type="button" aria-current={view === item ? "page" : undefined} onClick={() => onViewChange(item)}>
+              {t(item === "feed" ? "navFeed" : item === "rhythm" ? "navRhythm" : "sysTitle")}
+            </button>
+          ))}
+        </nav>
         <div className="nav-actions">
           {auth.required && (
             <button
               className={"lock-btn" + (auth.loggedIn ? " has-user" : "")}
               type="button"
+              aria-label={auth.loggedIn ? t("loginWho", { user: auth.user || "?" }) : t("loginBtnTip")}
               title={auth.loggedIn ? t("loginWho", { user: auth.user || "?" }) : t("loginBtnTip")}
               onClick={() => void auth.openLogin()}
             >
@@ -158,15 +169,15 @@ export function Nav({ status, onCheckDone }: NavProps) {
               {auth.loggedIn && <span className="uname">{auth.user || "?"}</span>}
             </button>
           )}
-          <div className="seg" role="tablist" aria-label="Theme">
+          <div className="seg" role="group" aria-label={t("themeLabel")}>
             <span className="seg-thumb" aria-hidden ref={thumbRef} />
-            <button className={"seg-item icon-only" + (themeMode === "light" ? " active" : "")} type="button" title={t("lightMode")} onClick={() => setThemeMode("light")}>
+            <button className={"seg-item icon-only" + (themeMode === "light" ? " active" : "")} type="button" aria-label={t("lightMode")} aria-pressed={themeMode === "light"} title={t("lightMode")} onClick={() => setThemeMode("light")}>
               <LightIcon />
             </button>
-            <button className={"seg-item icon-only" + (themeMode === "dark" ? " active" : "")} type="button" title={t("darkMode")} onClick={() => setThemeMode("dark")}>
+            <button className={"seg-item icon-only" + (themeMode === "dark" ? " active" : "")} type="button" aria-label={t("darkMode")} aria-pressed={themeMode === "dark"} title={t("darkMode")} onClick={() => setThemeMode("dark")}>
               <DarkIcon />
             </button>
-            <button className={"seg-item icon-only" + (themeMode === "system" ? " active" : "")} type="button" title={t("systemMode")} onClick={() => setThemeMode("system")}>
+            <button className={"seg-item icon-only" + (themeMode === "system" ? " active" : "")} type="button" aria-label={t("systemMode")} aria-pressed={themeMode === "system"} title={t("systemMode")} onClick={() => setThemeMode("system")}>
               <SystemIcon />
             </button>
           </div>
@@ -185,6 +196,7 @@ export function Nav({ status, onCheckDone }: NavProps) {
                     className={"drop-item" + (langMode === m ? " active" : "")}
                     type="button"
                     role="option"
+                    aria-selected={langMode === m}
                     onClick={() => {
                       setLangMode(m);
                       setLangOpen(false);

@@ -45,7 +45,7 @@ export function CalendarSection({ tick }: { tick: number }) {
   const [ym, setYm] = useState({ y: now0.getFullYear(), m: now0.getMonth() + 1 });
   const [data, setData] = useState<CalendarData | null>(null);
   const [err, setErr] = useState("");
-  const [sel, setSel] = useState<string>(() => dayKey(new Date()));
+  const [sel, setSel] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -96,13 +96,15 @@ export function CalendarSection({ tick }: { tick: number }) {
     return null;
   }
 
-  /* 月份网格：周一开头，6×7 固定骨架，前后补位相邻月日期 */
+  /* 月份网格按实际周数补位，避免短月份凭空多占一行阅读空间。 */
   const cells = useMemo<Cell[]>(() => {
     const first = new Date(ym.y, ym.m - 1, 1);
     const startOffset = (first.getDay() + 6) % 7; // getDay 周日=0，换算周一开头
     const start = new Date(ym.y, ym.m - 1, 1 - startOffset);
     const out: Cell[] = [];
-    for (let i = 0; i < 42; i++) {
+    const dayCount = new Date(ym.y, ym.m, 0).getDate();
+    const cellCount = Math.ceil((startOffset + dayCount) / 7) * 7;
+    for (let i = 0; i < cellCount; i++) {
       const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
       out.push({ key: dayKey(d), num: d.getDate(), off: d.getMonth() + 1 !== ym.m });
     }
@@ -130,17 +132,19 @@ export function CalendarSection({ tick }: { tick: number }) {
   const selPred = sel != null && sel === predDay && !selEvents.length ? pred : null;
   const selDate = sel ? new Date(sel + "T00:00:00") : null;
 
-  /* 翻月时选中日随网格走（落到目标月 1 号），避免明细停在上一个月的日期上 */
+  /* 翻月收起旧明细；用户点选日期后再展开，避免把旧日期带到新月份。 */
   const goMonth = (dy: number, dm: number) => {
     const nx = { y: dy, m: dm };
     setYm(nx);
-    setSel(`${nx.y}-${pad2(nx.m)}-01`);
+    setSel(null);
   };
 
   return (
     <>
-      <div className="sub-title">{t("calTitle")}</div>
+      <h2 className="sr-only">{t("calTitle")}</h2>
       <div className="cal-nav">
+        <span className="cal-title">{fmtMonth}</span>
+        <div className="cal-month-actions">
         <button
           className="cal-nav-btn"
           type="button"
@@ -149,7 +153,6 @@ export function CalendarSection({ tick }: { tick: number }) {
         >
           ‹
         </button>
-        <span className="cal-title">{fmtMonth}</span>
         <button
           className="cal-nav-btn"
           type="button"
@@ -158,6 +161,7 @@ export function CalendarSection({ tick }: { tick: number }) {
         >
           ›
         </button>
+        </div>
       </div>
           <div className="cal-sub">
             <span>
@@ -193,7 +197,9 @@ export function CalendarSection({ tick }: { tick: number }) {
                     (c.key === todayKey ? " today" : "") +
                     (c.key === sel ? " sel" : "")
                   }
-                  onClick={() => setSel(c.key)}
+                  aria-label={t("calSelectDay", { day: c.key })}
+                  aria-pressed={c.key === sel}
+                  onClick={() => setSel((current) => current === c.key ? null : c.key)}
                 >
                   <span className="cal-num">{c.num}</span>
                   {/* 状态点：实心=实际公告（颜色区分已生效/待生效），空心环=预测点 */}
@@ -223,7 +229,7 @@ export function CalendarSection({ tick }: { tick: number }) {
             </span>
             <span className="lg-hint">{t("calHollowHint")}</span>
           </div>
-          {/* 选中日明细：默认选中今天，含事件卡与预测卡 */}
+          {/* 点选日期才展开明细，首屏把空间留给通知渠道与数据源。 */}
           {sel && selDate && (
             <div className="cal-detail">
               <div className="cal-day-head">
