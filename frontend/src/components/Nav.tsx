@@ -1,4 +1,4 @@
-/* 顶部导航：品牌、主题段控（滑块）、语言下拉、登录徽标、立即检查、调试测试通知。 */
+/* 顶部导航：品牌、主题段控（滑块）、语言下拉、登录徽标、立即检查；调试通知入口在系统页。 */
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -8,7 +8,6 @@ import { useAuth } from "../context/AuthContext";
 import { useTheme, type ThemeMode } from "../context/ThemeContext";
 import { useToast } from "../context/ToastContext";
 import { SVG_CHEV, SVG_CHECK, SVG_GLOBE, SVG_LOCK } from "./icons";
-import { useLang } from "../i18n/useLang";
 import { useLangMode } from "../i18n/LangModeContext";
 
 const THEME_ORDER: ThemeMode[] = ["light", "dark", "system"];
@@ -40,18 +39,14 @@ function SystemIcon() {
   );
 }
 
-export type PanelView = "feed" | "rhythm" | "system";
 
 interface NavProps {
-  view: PanelView;
-  onViewChange: (view: PanelView) => void;
   status: Status | null;
   onCheckDone: () => void;
 }
 
-export function Nav({ status, onCheckDone, view, onViewChange }: NavProps) {
+export function Nav({ status, onCheckDone }: NavProps) {
   const { t } = useTranslation();
-  const lang = useLang();
   const { langMode, setLangMode } = useLangMode();
   const { mode: themeMode, setMode: setThemeMode } = useTheme();
   const { toast } = useToast();
@@ -59,6 +54,7 @@ export function Nav({ status, onCheckDone, view, onViewChange }: NavProps) {
   const [checking, setChecking] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
   const langBox = useRef<HTMLDivElement>(null);
+  const langTrigger = useRef<HTMLButtonElement>(null);
   const thumbRef = useRef<HTMLSpanElement>(null);
 
   // 语言下拉的 outside click / Escape 关闭
@@ -67,7 +63,13 @@ export function Nav({ status, onCheckDone, view, onViewChange }: NavProps) {
     const onDoc = (e: MouseEvent) => {
       if (langBox.current && !langBox.current.contains(e.target as Node)) setLangOpen(false);
     };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setLangOpen(false);
+    langBox.current?.querySelector<HTMLButtonElement>('[aria-selected="true"]')?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setLangOpen(false);
+        langTrigger.current?.focus();
+      }
+    };
     document.addEventListener("click", onDoc);
     document.addEventListener("keydown", onKey);
     return () => {
@@ -110,31 +112,9 @@ export function Nav({ status, onCheckDone, view, onViewChange }: NavProps) {
     }
   }
 
-  async function testNotify() {
-    try {
-      const results = await auth.guard(() =>
-        j<{ channel: string; ok: boolean; error?: string }[]>("/api/test-notify", { method: "POST" }),
-      );
-      if (!results.length) {
-        toast(t("toastNoChannel"), false);
-        return;
-      }
-      const fails = results.filter((r) => !r.ok);
-      const chs = results.map((r) => r.channel).join(lang === "zh" ? "、" : ", ");
-      toast(
-        fails.length
-          ? t("toastSendFail", { e: fails.map((f) => f.channel).join(", ") + (fails[0].error ? " " + fails[0].error : "") })
-          : t("toastSent", { n: results.length, chs }),
-        !fails.length,
-      );
-    } catch (e) {
-      const authFail = e instanceof ApiError && e.auth;
-      toast(authFail ? t("toastNeedLogin") : t("toastSendFail", { e: (e as Error).message }), false);
-    }
-  }
-
   const langLabel = langMode === "zh" ? "中文" : langMode === "en" ? "English" : t("langAutoShort");
   const siteName = status?.site_name || "Codex Reset Monitor";
+
 
   return (
     <header className="nav">
@@ -145,16 +125,10 @@ export function Nav({ status, onCheckDone, view, onViewChange }: NavProps) {
               <path d={BRAND_PATH} fillRule="nonzero" fill="currentColor" />
             </svg>
           </span>
+          <span className="brand-dot" aria-hidden />
           <span className="brand-name">{siteName}</span>
           {status?.demo && <span className="badge-demo">{t("demoLabel")}</span>}
         </div>
-        <nav className="section-nav" aria-label={t("panelNavigation")}>
-          {(["feed", "rhythm", "system"] as const).map((item) => (
-            <button key={item} type="button" aria-current={view === item ? "page" : undefined} onClick={() => onViewChange(item)}>
-              {t(item === "feed" ? "navFeed" : item === "rhythm" ? "navRhythm" : "sysTitle")}
-            </button>
-          ))}
-        </nav>
         <div className="nav-actions">
           {auth.required && (
             <button
@@ -164,7 +138,7 @@ export function Nav({ status, onCheckDone, view, onViewChange }: NavProps) {
               title={auth.loggedIn ? t("loginWho", { user: auth.user || "?" }) : t("loginBtnTip")}
               onClick={() => void auth.openLogin()}
             >
-              {!auth.loggedIn && <span dangerouslySetInnerHTML={{ __html: SVG_LOCK }} />}
+              {!auth.loggedIn && <><span dangerouslySetInnerHTML={{ __html: SVG_LOCK }} /><span className="login-label">{t("loginBtnTip")}</span></>}
               {auth.loggedIn && <span className="pulse-dot green dim" />}
               {auth.loggedIn && <span className="uname">{auth.user || "?"}</span>}
             </button>
@@ -183,13 +157,18 @@ export function Nav({ status, onCheckDone, view, onViewChange }: NavProps) {
           </div>
           {/* open 类必须在父级：CSS 的 .dropdown.open .drop-menu / .chev 都挂在父级上，挂在菜单上会导致菜单永远 opacity:0 */}
           <div className={langOpen ? "dropdown open" : "dropdown"} ref={langBox}>
-            <button className="drop-trigger" type="button" aria-haspopup="listbox" aria-expanded={langOpen} aria-label={t("langSwitch")} onClick={() => setLangOpen((o) => !o)}>
+            <button ref={langTrigger} className="drop-trigger" type="button" aria-haspopup="listbox" aria-expanded={langOpen} aria-label={t("langSwitch")} onClick={() => setLangOpen((o) => !o)}>
               <span dangerouslySetInnerHTML={{ __html: SVG_GLOBE }} />
               <span className="drop-label">{langLabel}</span>
               <span dangerouslySetInnerHTML={{ __html: SVG_CHEV }} />
             </button>
             {langOpen && (
-              <div className="drop-menu open" role="listbox">
+              <div className="drop-menu open" role="listbox" aria-label={t("langSwitch")} onKeyDown={(event) => {
+                const items = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="option"]'));
+                const current = items.indexOf(document.activeElement as HTMLButtonElement);
+                const next = event.key === "ArrowDown" ? (current + 1) % items.length : event.key === "ArrowUp" ? (current - 1 + items.length) % items.length : event.key === "Home" ? 0 : event.key === "End" ? items.length - 1 : null;
+                if (next != null) { event.preventDefault(); items[next]?.focus(); }
+              }}>
                 {(["zh", "en", "auto"] as const).map((m) => (
                   <button
                     key={m}
@@ -200,6 +179,7 @@ export function Nav({ status, onCheckDone, view, onViewChange }: NavProps) {
                     onClick={() => {
                       setLangMode(m);
                       setLangOpen(false);
+                      langTrigger.current?.focus();
                     }}
                   >
                     <span>{m === "zh" ? "中文" : m === "en" ? "English" : t("langAutoMenu")}</span>
@@ -209,7 +189,7 @@ export function Nav({ status, onCheckDone, view, onViewChange }: NavProps) {
               </div>
             )}
           </div>
-          <button className="btn btn-primary" type="button" disabled={checking} onClick={() => void checkNow()}>
+          <button className="btn btn-primary" type="button" aria-busy={checking} disabled={checking} onClick={() => void checkNow()}>
             <span>{checking ? t("checking") : t("check")}</span>
             <span className="btn-orb">
               {checking ? (
@@ -224,11 +204,7 @@ export function Nav({ status, onCheckDone, view, onViewChange }: NavProps) {
               )}
             </span>
           </button>
-          {status?.debug && (
-            <button className="btn btn-ghost" type="button" title={t("debugBtnTip")} onClick={() => void testNotify()}>
-              {t("testNotify")}
-            </button>
-          )}
+
         </div>
       </div>
     </header>

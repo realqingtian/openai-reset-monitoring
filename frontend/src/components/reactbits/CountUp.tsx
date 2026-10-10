@@ -1,4 +1,4 @@
-import { useInView, useMotionValue, useSpring } from 'motion/react';
+import { useInView, useMotionValue, useReducedMotion, useSpring } from 'motion/react';
 import { useCallback, useEffect, useRef } from 'react';
 
 interface CountUpProps {
@@ -27,6 +27,7 @@ export default function CountUp({
   onEnd
 }: CountUpProps) {
   const ref = useRef<HTMLSpanElement>(null);
+  const reducedMotion = useReducedMotion();
   const motionValue = useMotionValue(direction === 'down' ? to : from);
 
   const damping = 20 + 40 * (1 / duration);
@@ -71,11 +72,12 @@ export default function CountUp({
 
   useEffect(() => {
     if (ref.current) {
-      ref.current.textContent = formatValue(direction === 'down' ? to : from);
+      ref.current.textContent = formatValue(reducedMotion ? to : direction === 'down' ? to : from);
     }
-  }, [from, to, direction, formatValue]);
+  }, [from, to, direction, formatValue, reducedMotion]);
 
   useEffect(() => {
+    if (reducedMotion || from === to) return;
     if (isInView && startWhen) {
       if (typeof onStart === 'function') {
         onStart();
@@ -99,9 +101,10 @@ export default function CountUp({
         clearTimeout(durationTimeoutId);
       };
     }
-  }, [isInView, startWhen, motionValue, direction, from, to, delay, onStart, onEnd, duration]);
+  }, [isInView, startWhen, motionValue, direction, from, to, delay, onStart, onEnd, duration, reducedMotion]);
 
   useEffect(() => {
+    if (reducedMotion || from === to) return;
     const unsubscribe = springValue.on('change', (latest: number) => {
       if (ref.current) {
         ref.current.textContent = formatValue(latest);
@@ -109,7 +112,7 @@ export default function CountUp({
     });
 
     return () => unsubscribe();
-  }, [springValue, formatValue]);
+  }, [springValue, formatValue, reducedMotion, from, to]);
 
   return <span className={className} ref={ref} />;
 }

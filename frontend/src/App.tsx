@@ -1,48 +1,44 @@
-/* 公告阅读布局：帖子优先，节奏与日历作为旁栏上下文。
-   保留同一套数据刷新与权限链路，避免视觉改版改变监控行为。 */
+/* 日历为主、帖子为辅；读取与操作沿用现有权限和刷新链路。 */
 
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { j } from "./api/client";
-import type { Poll, Stats, Status, Tweet } from "./api/types";
+import type { Stats, Status, Tweet } from "./api/types";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { ToastProvider, useToast } from "./context/ToastContext";
 import { LangModeProvider } from "./i18n/LangModeContext";
 import { Footer } from "./components/Footer";
-import { Nav, type PanelView } from "./components/Nav";
+import { Nav } from "./components/Nav";
 import AnimatedContent from "./components/reactbits/AnimatedContent";
 import { CalendarSection } from "./features/calendar/Calendar";
-import { Feed, TweetCard } from "./features/feed/Feed";
-import { HeatTile, MonitorIntro, NextResetCard, PulseCard, SourcesCol, SystemCard } from "./features/overview/Overview";
+import { Feed } from "./features/feed/Feed";
+import { RhythmCard } from "./features/sidebar/Sidebar";
+import { TestNotifyButton } from "./components/TestNotifyButton";
 
 function Panel() {
   const { t } = useTranslation();
   const { toast } = useToast();
   const auth = useAuth();
-  const [view, setView] = useState<PanelView>("feed");
   const [history, setHistory] = useState(false);
   const [status, setStatus] = useState<Status | null>(null);
   const [tweets, setTweets] = useState<Tweet[]>([]);
   const [hits, setHits] = useState<Tweet[]>([]);
-  const [polls, setPolls] = useState<Poll[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   // 日历自取数据的刷新信号：面板每轮刷新（含手动立即检查）都会自增，日历跟随重取
   const [calTick, setCalTick] = useState(0);
 
   const refresh = useCallback(async () => {
     try {
-      const [st, tw, ht, pl, stt] = await Promise.all([
+      const [st, tw, ht, stt] = await Promise.all([
         j<Status>("/api/status"),
         j<Tweet[]>("/api/tweets?limit=10"),
         j<Tweet[]>("/api/hits?limit=10"),
-        j<Poll[]>("/api/polls?limit=200"),
         j<Stats>("/api/stats"),
       ]);
       setStatus(st);
       setTweets(tw);
       setHits(ht);
-      setPolls(pl);
       setStats(stt);
       auth.syncRequired(st.access_protected);
     } catch (e) {
@@ -65,53 +61,27 @@ function Panel() {
     if (status?.site_name) document.title = status.site_name;
   }, [status?.site_name]);
 
-  const featured = status?.latest_hit ?? hits[0] ?? null;
-
   return (
-    <div className="editorial-panel">
-      <Nav status={status} onCheckDone={() => void refresh()} view={view} onViewChange={setView} />
-      <main className="wrap">
-        <MonitorIntro status={status} view={view} />
-        <div className={"reading-layout" + (view !== "system" ? " timeline-layout" : "")}>
-          <div className="reading-main">
-            <AnimatedContent className="reading-content" distance={12} duration={0.4}>
-              <section hidden={view !== "feed"} aria-label={t("navFeed")} className="posts-main">
-                {featured ? (
-                  <TweetCard key={featured.id} tw={featured} featured mirror={status?.avatar_mirror} />
-                ) : (
-                  <div className="featured-empty"><h2>{t("featuredEmptyTitle")}</h2><p>{t("hitEmpty")}</p></div>
-                )}
-                <div className="feed-surface">
-                  <div className="reading-tabs" role="group" aria-label={t("feedView")}>
-                    <button type="button" aria-pressed={!history} onClick={() => setHistory(false)}>{t("recentPosts")}</button>
-                    <button type="button" aria-pressed={history} onClick={() => setHistory(true)}>{t("hitHistory")}</button>
-                    <span className="feed-scroll-hint">{t("postsScrollHint")}</span>
-                  </div>
-                  <Feed key={history ? "history" : "recent"} tweets={history ? hits : tweets} mirror={status?.avatar_mirror} history={history} windowHours={auth.loggedIn ? status?.lookback_hours ?? 24 : Math.min(status?.lookback_hours ?? 24, 24)} />
-                </div>
-              </section>
-              <section hidden={view !== "rhythm"} aria-label={t("navRhythm")} className="rhythm-main posts-main">
-                <HeatTile stats={stats} />
-                <div className="feed-surface rhythm-history">
-                  <h2 className="section-heading">{t("hitHistory")}</h2>
-                  <Feed tweets={hits} mirror={status?.avatar_mirror} history />
-                </div>
-              </section>
-              <section hidden={view !== "system"} aria-label={t("sysTitle")} className="system-main">
-                <SystemCard status={status} polls={polls} />
-              </section>
-            </AnimatedContent>
+    <>
+      <button className="skip-link" type="button" onClick={() => document.getElementById("panel-content")?.focus()}>{t("skipToContent")}</button>
+      <Nav status={status} onCheckDone={() => void refresh()} />
+      <main id="panel-content" className="wrap" tabIndex={-1}>
+        <CalendarSection tick={calTick} stats={stats} />
+        <section className="posts-section" aria-label={t("feedView")}>
+          <div className="feed-tabs" role="group" aria-label={t("feedView")}>
+            <button type="button" aria-pressed={!history} onClick={() => setHistory(false)}>{t("recentPosts")}</button>
+            <button type="button" aria-pressed={history} onClick={() => setHistory(true)}>{t("hitHistory")}</button>
           </div>
-          <aside className="reading-aside" aria-label={t("navRhythm")}>
-            <NextResetCard status={status} stats={stats} />
-            <section className="aside-calendar"><CalendarSection tick={calTick} /></section>
-            <section className="aside-system"><SourcesCol status={status} /></section>
-          </aside>
-        </div>
-        <PulseCard status={status} />
+          <Feed key={history ? "history" : "recent"} tweets={history ? hits : tweets} mirror={status?.avatar_mirror} history={history} windowHours={auth.loggedIn ? status?.lookback_hours ?? 24 : Math.min(status?.lookback_hours ?? 24, 24)} />
+        </section>
+        <details className="rhythm-history">
+          <summary>{t("viewRhythm")}</summary>
+          <div className="rhythm-history-body"><AnimatedContent distance={8} duration={0.25}><RhythmCard stats={stats} /></AnimatedContent></div>
+        </details>
+        {status?.debug && <div className="panel-utilities"><section className="card" aria-label={t("debugTitle")}><div className="card-core"><h2 className="sub-title">{t("debugTitle")}</h2>{status.demo && <p className="initial-note">{t("demoNotifyHint")}</p>}<TestNotifyButton /></div></section></div>}
         <Footer status={status} />
       </main>
-    </div>
+    </>
   );
 }
 

@@ -1,14 +1,15 @@
 /* 阅读面板的节奏摘要、统计与系统详情：仅展示接口状态，不推断官方重置承诺。 */
 
-import { memo, useCallback, useEffect, useState, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { j } from "../../api/client";
-import type { Poll, Stats, Status, Tweet } from "../../api/types";
-import { ago, esc, fmt, hl, localOffsetLabel, safeUrl } from "../../utils/format";
+import type { Poll, SourceState, Stats, Status, Tweet } from "../../api/types";
+import { ago, fmt, hl, localOffsetLabel, safeUrl } from "../../utils/format";
 import { useLang } from "../../i18n/useLang";
 import type { Lang } from "../../utils/format";
 import CountUp from "../../components/reactbits/CountUp";
+import { TestNotifyButton } from "../../components/TestNotifyButton";
 
 /* 逐秒刷新的本地时钟：倒计时与进度条的「活着」来源（数据仍 60s 拉新，走动不依赖轮询） */
 function useNow(intervalMs = 1000): number {
@@ -47,14 +48,14 @@ export function MonitorIntro({ status, view }: { status: Status | null; view: "f
   const accounts = (status?.accounts || []).map((account) => "@" + account).join(lang === "zh" ? "、" : ", ");
   return (
     <div className="reading-intro">
-      <h1>{t(view === "feed" ? "readingTitle" : view === "rhythm" ? "navRhythm" : "sysTitle")}</h1>
+      <h1 className="sr-only">{t(view === "feed" ? "navFeed" : view === "rhythm" ? "navRhythm" : "sysTitle")}</h1>
       <div className={"monitor-line " + tone}>
         <span className={"dot " + tone} aria-hidden />
         <span>{t("pulseWatch", { acc: accounts || "—" })}</span>
         <span>·</span><span>{t(state)}</span>
         <span className="monitor-last">{t("pulseLastCheck", { ago: ago(status?.last_poll_at, lang) })}</span>
       </div>
-      <p>{t(view === "feed" ? "readingDescription" : view === "rhythm" ? "rhythmDescription" : "systemDescription")}</p>
+      <p className="sr-only">{t(view === "feed" ? "readingDescription" : view === "rhythm" ? "rhythmDescription" : "systemDescription")}</p>
     </div>
   );
 }
@@ -103,8 +104,8 @@ export function PulseCard({ status }: { status: Status | null }) {
   return (
     <div className="reading-stats" aria-label={t("liveStats")}>
       <span className="stats-heading">{t("liveStats")}</span>
-      <span><CountUp to={status?.tweets_24h ?? 0} duration={1} /> {t("statTweets")}</span>
-      <span><CountUp to={status?.hit_count_24h ?? 0} duration={1} /> {t("statHits")}</span>
+      <span><CountUp from={status?.tweets_24h ?? 0} to={status?.tweets_24h ?? 0} duration={1} /> {t("statTweets")}</span>
+      <span><CountUp from={status?.hit_count_24h ?? 0} to={status?.hit_count_24h ?? 0} duration={1} /> {t("statHits")}</span>
       <span>{status ? status.poll_interval_minutes + " min" : "—"} {t("statInterval")}</span>
       {status?.demo && <span className="stats-note">{t("demoNote")}</span>}
     </div>
@@ -219,6 +220,20 @@ const RhythmHeatmap = memo(function RhythmHeatmap({ daily }: { daily: { day: str
           className={["hm-" + level, day === todayStr ? "today" : "", n > 0 ? "hit" : "", selDay === day ? "sel" : ""]
             .filter(Boolean)
             .join(" ")}
+          role={n > 0 ? "button" : undefined}
+          tabIndex={n > 0 ? 0 : undefined}
+          aria-label={n > 0 ? t("heatTip", { day, n }) : undefined}
+          onFocus={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            setTip({ x: rect.left, y: rect.bottom, day, n });
+          }}
+          onBlur={() => setTip(null)}
+          onKeyDown={(e) => {
+            if (n > 0 && (e.key === "Enter" || e.key === " ")) {
+              e.preventDefault();
+              setSelDay((current) => current === day ? null : day);
+            }
+          }}
           onMouseMove={(e) => setTip({ x: e.clientX, y: e.clientY, day, n })}
           onClick={() => n > 0 && setSelDay((cur) => (cur === day ? null : day))}
         />,
@@ -249,7 +264,7 @@ const RhythmHeatmap = memo(function RhythmHeatmap({ daily }: { daily: { day: str
   return (
     <>
       <div className="heat-body">
-        <svg className="rhythm-heat" viewBox={`0 0 ${GX + HEAT_WEEKS} ${GY + 7}`} aria-hidden onMouseLeave={() => setTip(null)}>
+        <svg className="rhythm-heat" viewBox={`0 0 ${GX + HEAT_WEEKS} ${GY + 7}`} role="group" aria-label={t("heatTitle")} onMouseLeave={() => setTip(null)}>
           {monthLabels.map((m) => (
             <text key={m.x} className="hm-label" x={m.x} y={0.58}>
               {m.label}
@@ -265,7 +280,7 @@ const RhythmHeatmap = memo(function RhythmHeatmap({ daily }: { daily: { day: str
         <div className="heat-side">
           <div className="heat-total">
             <span className="heat-total-num">
-              <CountUp to={total} duration={1} />
+              <CountUp from={total} to={total} duration={1} />
             </span>
             <span className="heat-total-label">{t("heatTotal", { weeks: HEAT_WEEKS })}</span>
           </div>
@@ -316,101 +331,63 @@ export function HeatTile({ stats }: { stats: Stats | null }) {
 
 /* ---------- 系统状态：数据源 / 通知渠道 / AI 能力 ｜ 检查日志（左右分栏） ---------- */
 
+function sourceLabel(source: SourceState, t: (key: string, values?: Record<string, unknown>) => string, lang: Lang) {
+  if (!source.enabled) return { tone: "idle", text: t("stDisabled") };
+  if (!source.configured) return { tone: "warn", text: t("stNoKey") };
+  if (!source.known) return { tone: "warn", text: t("stWait") };
+  if (source.healthy) return { tone: "ok", text: t("stOk", { ago: ago(source.last_ok, lang) }) };
+  return { tone: "bad", text: t("stFail", { n: source.failures }) };
+}
+
 export function SourcesCol({ status }: { status: Status | null }) {
   const { t } = useTranslation();
   const lang = useLang();
-  const rows: ReactNode[] = [];
-  if (status?.demo) {
-    rows.push(
-      <div className="srow" key="demo">
-        <span className="dot ok" />
-        <span className="sname">demo</span>
-        <span className="sstate">{t("srcDemo")}</span>
-      </div>,
-    );
-  }
-  (status?.sources || [])
-    .filter((s) => s.enabled)
-    .forEach((s) => {
-      let cls: string, label: string;
-      if (!s.configured) {
-        cls = "warn";
-        label = t("stNoKey");
-      } else if (!s.known) {
-        cls = "warn";
-        label = t("stWait");
-      } else if (s.healthy) {
-        cls = "ok";
-        label = t("stOk", { ago: ago(s.last_ok, lang) });
-      } else {
-        cls = "bad";
-        label = t("stFail", { n: s.failures });
-      }
-      rows.push(
-        <div className="srow" key={s.name} title={s.last_error ? esc(s.last_error) : undefined}>
-          <span className={`dot ${cls}`} />
-          <span className="sname">{esc(s.name)}</span>
-          <span className="sstate">{label}</span>
-        </div>,
-      );
-    });
-  const ntf: ReactNode[] = [];
-  let okCount = 0;
-  (status?.notifiers || [])
-    .filter((n) => n.enabled)
-    .forEach((n) => {
-      const cls = n.configured ? "ok" : "warn";
-      const label = n.configured ? t("ntReady") : t("stNoKey");
-      if (n.configured) okCount++;
-      ntf.push(
-        <span key={n.name} className="npill">
-          <span className={`dot ${cls}`} />
-          {esc(n.name)} · {label}
-        </span>,
-      );
-    });
-  if (okCount === 0) ntf.push(<span key="hint" className="npill">{t("notifHint")}</span>);
-
-  // AI 能力：配置了所选厂商的 Key 即启用（翻译优先走 AI + 推送前复核），未配置时功能静默降级
   const ai = status?.ai;
-  const aiPills: ReactNode[] = [];
-  if (ai?.enabled) {
-    aiPills.push(
-      <span key="prov" className="npill">
-        <span className="dot ok" />
-        {t("aiOn", { provider: ai.provider, model: ai.model })}
-      </span>,
-      <span key="cap1" className="npill">{ai.review ? t("aiReviewOn") : t("aiReviewOff")}</span>,
-      <span key="cap2" className="npill">{t("aiTranslateOn")}</span>,
-    );
-  } else {
-    aiPills.push(
-      <span key="off" className="npill">
-        <span className="dot warn" />
-        {t("aiOff")}
-      </span>,
-    );
-  }
-
+  const sources = status?.sources || [];
+  const notifiers = status?.notifiers || [];
+  const anyReady = notifiers.some((n) => n.enabled && n.configured);
   return (
-    <>
-      <div className="sub-title">{t("notifyChannels")}</div>
-      <div className="npills">{ntf}</div>
-      <div className="divider" />
-      <div className="sub-title">{t("dataSources")}</div>
-      <div className="source-rows">
-        {rows.length ? rows : (
-          <div className="srow">
-            <span className="dot warn" />
-            <span className="sname">—</span>
-            <span className="sstate">{t("srcEmpty")}</span>
-          </div>
-        )}
-      </div>
-      <div className="divider" />
-      <div className="sub-title">{t("aiCap")}</div>
-      <div className="npills">{aiPills}</div>
-    </>
+    <div className="system-sections">
+      <section className="system-section" aria-labelledby="sourcesTitle">
+        <h2 id="sourcesTitle" className="section-heading">{t("dataSources")}</h2>
+        <div className="source-rows">
+          {status?.demo && <div className="srow"><span className="sname">{t("srcDemo")}</span><span className="state-label ok"><span className="dot ok" />{t("monitorHealthy")}</span></div>}
+          {sources.map((source) => {
+            const state = sourceLabel(source, t, lang);
+            return <div className="srow" key={source.name} title={source.last_error || undefined}>
+              <span className="sname">{source.name === "rsshub" ? "RSSHub" : source.name === "twitterapi_io" ? "TwitterAPI.io" : source.name}</span>
+              <span className={"state-label " + state.tone}><span className={"dot " + state.tone} />{state.text}</span>
+              {source.last_error && <details className="source-error"><summary>{t("errorDetails")}</summary><p>{source.last_error}</p></details>}
+            </div>;
+          })}
+          {!status && <p className="hempty">{t("monitorLoading")}</p>}
+          {status && !status.demo && !sources.some((source) => source.enabled) && <p className="section-note">{t("srcEmpty")}</p>}
+        </div>
+      </section>
+      <section className="system-section" aria-labelledby="notifiersTitle">
+        <h2 id="notifiersTitle" className="section-heading">{t("notifyChannels")}</h2>
+        <div className="notifier-rows">
+          {notifiers.map((channel) => {
+            const ready = channel.enabled && channel.configured;
+            const tone = ready ? "ok" : channel.enabled ? "warn" : "idle";
+            return <div className="srow" key={channel.name}>
+              <span className="sname">{t("channel_" + channel.name, { defaultValue: channel.name })}</span>
+              <span className={"state-label " + tone}><span className={"dot " + tone} />{t(ready ? "ntReady" : channel.enabled ? "stUnconfigured" : "stDisabled")}</span>
+            </div>;
+          })}
+        </div>
+        {!anyReady && <p className="section-note">{t("notifHint")}</p>}
+        {status?.demo && <p className="section-note">{t("demoNotifyHint")}</p>}
+      </section>
+      <section className="system-section" aria-labelledby="aiTitle">
+        <h2 id="aiTitle" className="section-heading">{t("aiCap")}</h2>
+        {ai?.enabled ? <>
+          <div className="srow"><span className="sname">{t("aiProvider")}</span><span className="svalue">{ai.provider} · {ai.model}</span></div>
+          <div className="srow"><span className="sname">{t("aiReviewLabel")}</span><span className={"state-label " + (ai.review ? "ok" : "idle")}><span className={"dot " + (ai.review ? "ok" : "idle")} />{t(ai.review ? "stEnabled" : "stDisabled")}</span></div>
+          <p className="section-note">{t("aiTranslateOn")}</p>
+        </> : <p className="section-note ai-unconfigured"><span className="dot warn" />{t("aiOff")}</p>}
+      </section>
+    </div>
   );
 }
 
@@ -421,60 +398,49 @@ export function PollLog({ polls }: { polls: Poll[] }) {
   const [rawPage, setPage] = useState(1);
   const total = polls.length;
   const pages = Math.max(1, Math.ceil(total / POLL_PAGE_SIZE));
-  // 渲染期派生钳制，越界翻页（数据刷新后页数变少）自动落回合法页
+  // 刷新使总页数缩小时，派生当前页避免留在空白页。
   const page = Math.min(Math.max(1, rawPage), pages);
   const start = (page - 1) * POLL_PAGE_SIZE;
-
   return (
-    <>
+    <section className="system-section log-section" aria-labelledby="pollTitle">
       <div className="log-head">
-        <span className="sub-title" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-          <span>{t("pollLog")}</span>
-          <span className="pill" title={t("pollLogTip")}>{t("logCount", { n: total })}</span>
-        </span>
-        <div className="pager">
-          <button className="pg-btn" type="button" aria-label={t("prevPage")} disabled={page <= 1} onClick={() => setPage(page - 1)}>‹</button>
-          <span className="pg-info">{page} / {pages}</span>
-          <button className="pg-btn" type="button" aria-label={t("nextPage")} disabled={page >= pages} onClick={() => setPage(page + 1)}>›</button>
-        </div>
+        <h2 id="pollTitle" className="section-heading">{t("pollLog")} <span className="pill" title={t("pollLogTip")}>{t("logCount", { n: total })}</span></h2>
       </div>
-      <div id="pollList" className="loglist scroll-y">
-        {total ? (
-          polls.slice(start, start + POLL_PAGE_SIZE).map((p) => (
-            <div key={p.id} className="logrow" title={p.error || ""}>
-              <span className="log-time">{fmt(p.ts)}</span>
-              <span className={`dot ${p.ok ? "ok" : "bad"}`} />
-              <span className="log-src">{esc(p.source || "")}</span>
-              <span className="log-stat">
-                {p.ok
-                  ? t("okStat", { n: p.new_tweets ?? 0, ms: p.latency_ms != null ? p.latency_ms + "ms" : "—" })
-                  : t("failStat")}
-              </span>
-            </div>
-          ))
-        ) : (
-          <div className="hempty">{t("logEmpty")}</div>
-        )}
+      <p className="section-note log-note">{t("pollLogTip")}</p>
+      <div className="log-table-wrap" tabIndex={0} role="region" aria-label={t("pollLog")}>
+        <table className="log-table">
+          <thead><tr>{["logTime", "logSource", "logState", "logPosts", "logLatency"].map((key) => <th key={key} scope="col">{t(key)}</th>)}</tr></thead>
+          <tbody>{total ? polls.slice(start, start + POLL_PAGE_SIZE).map((poll) => <tr key={poll.id}>
+            <td><time dateTime={poll.ts || undefined} title={fmt(poll.ts)}>{fmt(poll.ts)}</time></td>
+            <td>{poll.source || "—"}</td>
+            <td><span className={"state-label " + (poll.ok ? "ok" : "bad")}><span className={"dot " + (poll.ok ? "ok" : "bad")} />{t(poll.ok ? "logSuccess" : "failStat")}</span>{poll.error && <details className="log-error"><summary>{t("errorDetails")}</summary><p>{poll.error}</p></details>}</td>
+            <td className="numeric">{poll.new_tweets ?? "—"}</td>
+            <td className="numeric">{poll.latency_ms != null ? poll.latency_ms + "ms" : "—"}</td>
+          </tr>) : <tr><td colSpan={5} className="hempty">{t("logEmpty")}</td></tr>}</tbody>
+        </table>
       </div>
-    </>
+      <div className="pager">
+        <button className="pg-btn" type="button" aria-label={t("prevPage")} disabled={page <= 1} onClick={() => setPage(page - 1)}>‹</button>
+        <span className="pg-info" aria-live="polite">{page} / {pages}</span>
+        <button className="pg-btn" type="button" aria-label={t("nextPage")} disabled={page >= pages} onClick={() => setPage(page + 1)}>›</button>
+      </div>
+    </section>
   );
 }
 
 export function SystemCard({ status, polls }: { status: Status | null; polls: Poll[] }) {
   const { t } = useTranslation();
   return (
-    <div className="card">
-      <div className="card-core">
-        <div className="sub-title">{t("sysTitle")}</div>
-        <div className="sys-grid">
-          <div className="sys-col">
-            <SourcesCol status={status} />
-          </div>
-          <div className="sys-col sys-col-log">
-            <PollLog polls={polls} />
-          </div>
-        </div>
+    <div className="system-layout">
+      <div className="system-config">
+        <SourcesCol status={status} />
+        {status?.debug && <section className="system-section debug-section" aria-labelledby="debugTitle">
+          <div className="aside-heading"><h2 id="debugTitle">{t("debugTitle")}</h2><span className="pill">{t("debugMode")}</span></div>
+          <p className="section-note">{t("debugNotifyDescription")}</p>
+          <TestNotifyButton />
+        </section>}
       </div>
+      <PollLog polls={polls} />
     </div>
   );
 }

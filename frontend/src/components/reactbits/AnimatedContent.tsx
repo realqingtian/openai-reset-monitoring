@@ -51,6 +51,11 @@ const AnimatedContent: React.FC<AnimatedContentProps> = ({
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    // 尊重系统减少动态效果设置，避免入场动画把内容暂时隐藏。
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      gsap.set(el, { x: 0, y: 0, scale: 1, opacity: 1, visibility: 'visible' });
+      return;
+    }
 
     let scrollerTarget: Element | string | null = container || document.getElementById('snap-main-container') || null;
 
