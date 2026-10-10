@@ -42,10 +42,11 @@ function SystemIcon() {
 
 interface NavProps {
   status: Status | null;
-  onCheckDone: () => void;
+  onCheckDone: () => Promise<void>;
+  refreshing: boolean;
 }
 
-export function Nav({ status, onCheckDone }: NavProps) {
+export function Nav({ status, onCheckDone, refreshing }: NavProps) {
   const { t } = useTranslation();
   const { langMode, setLangMode } = useLangMode();
   const { mode: themeMode, setMode: setThemeMode } = useTheme();
@@ -102,7 +103,7 @@ export function Nav({ status, onCheckDone }: NavProps) {
     setChecking(true);
     try {
       await auth.guard(() => j("/api/poll-now", { method: "POST" }));
-      onCheckDone();
+      await onCheckDone();
       toast(t("toastDone"));
     } catch (e) {
       const authFail = e instanceof ApiError && e.auth;
@@ -118,6 +119,7 @@ export function Nav({ status, onCheckDone }: NavProps) {
 
   return (
     <header className="nav">
+      <div className={"panel-progress" + (refreshing ? " active" : "")} aria-hidden><span /></div>
       <div className="nav-inner">
         <div className="brand">
           <span className="brand-logo" aria-hidden>
@@ -189,7 +191,7 @@ export function Nav({ status, onCheckDone }: NavProps) {
               </div>
             )}
           </div>
-          <button className="btn btn-primary" type="button" aria-busy={checking} disabled={checking} onClick={() => void checkNow()}>
+          <button className={"btn btn-primary" + (checking ? " loading" : "")} type="button" aria-busy={checking} disabled={checking} onClick={() => void checkNow()}>
             <span>{checking ? t("checking") : t("check")}</span>
             <span className="btn-orb">
               {checking ? (

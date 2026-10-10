@@ -2,8 +2,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { j } from "../../api/client";
-import type { CalendarData, CalendarEvent, Stats } from "../../api/types";
+import type { CalendarData, CalendarEvent } from "../../api/types";
 import { useLang } from "../../i18n/useLang";
+import AnimatedContent from "../../components/reactbits/AnimatedContent";
 import { PostContent } from "../feed/Feed";
 
 const EFFECTIVE_MS = 6 * 3600e3;
@@ -16,13 +17,15 @@ function eventState(ev: CalendarEvent, now: number) {
   return Date.parse(ev.created_at) + EFFECTIVE_MS <= now ? "done" : "pending";
 }
 
-export function CalendarSection({ tick, stats }: { tick: number; stats: Stats | null }) {
+export function CalendarSection({ tick, onLoadingChange }: { tick: number; onLoadingChange: (loading: boolean) => void }) {
   const { t } = useTranslation();
   const lang = useLang();
   const locale = lang === "zh" ? "zh-CN" : "en-US";
   const [ym, setYm] = useState(() => ({ y: new Date().getFullYear(), m: new Date().getMonth() + 1 }));
   const [data, setData] = useState<CalendarData | null>(null);
-  const [err, setErr] = useState("");
+  const [err, setErr] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [retry, setRetry] = useState(0);
   const [sel, setSel] = useState(() => dayKey(new Date()));
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
@@ -30,12 +33,18 @@ export function CalendarSection({ tick, stats }: { tick: number; stats: Stats | 
     return () => clearInterval(id);
   }, []);
   useEffect(() => {
-    let alive = true;
-    j<CalendarData>(`/api/calendar?year=${ym.y}&month=${ym.m}`).then((d) => {
-      if (alive) { setData(d); setErr(""); }
-    }).catch((e) => { if (alive) setErr((e as Error).message); });
-    return () => { alive = false; };
-  }, [ym, tick]);
+    const controller = new AbortController();
+    queueMicrotask(() => {
+      if (controller.signal.aborted) return;
+      setLoading(true);
+      onLoadingChange(true);
+      void j<CalendarData>(`/api/calendar?year=${ym.y}&month=${ym.m}`, { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(20000)]) }).then((d) => {
+        if (!controller.signal.aborted) { setData(d); setErr(false); }
+      }).catch(() => { if (!controller.signal.aborted) setErr(true); })
+        .finally(() => { if (!controller.signal.aborted) { setLoading(false); onLoadingChange(false); } });
+    });
+    return () => controller.abort();
+  }, [ym, tick, retry, onLoadingChange]);
 
   const byDay = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
@@ -65,18 +74,18 @@ export function CalendarSection({ tick, stats }: { tick: number; stats: Stats | 
   const fmtDateTime = (time: string) => new Intl.DateTimeFormat(locale, { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(time));
   function goMonth(delta: number) {
     const next = new Date(ym.y, ym.m - 1 + delta, 1);
-    setData(null); setErr("");
+    setData(null); setErr(false); setLoading(true);
     setYm({ y: next.getFullYear(), m: next.getMonth() + 1 });
     setSel(dayKey(next));
   }
   function goToday() {
     const date = new Date();
     if (ym.y !== date.getFullYear() || ym.m !== date.getMonth() + 1) {
-      setData(null); setErr(""); setYm({ y: date.getFullYear(), m: date.getMonth() + 1 });
+      setData(null); setErr(false); setLoading(true); setYm({ y: date.getFullYear(), m: date.getMonth() + 1 });
     }
     setSel(dayKey(date));
   }
-  return <section className="calendar-section" aria-label={t("calTitle")}>
+  return <section className="calendar-section" aria-label={t("calTitle")} aria-busy={loading}>
     <div className="calendar-workspace">
       <div className="calendar-month">
         <div className="cal-nav">
@@ -87,8 +96,8 @@ export function CalendarSection({ tick, stats }: { tick: number; stats: Stats | 
             <button className="cal-nav-btn" type="button" aria-label={t("calNext")} onClick={() => goMonth(1)}>›</button>
           </div>
         </div>
-        {err && <p className="cal-message" role="alert">{err}</p>}
-        {!data && !err && <p className="cal-message" role="status">{t("monitorLoading")}</p>}
+        {err && <div className="cal-message section-load-error" role="alert"><span>{t("calLoadFail")}</span><button type="button" disabled={loading} onClick={() => setRetry((n) => n + 1)}>{t("postsRetry")}</button></div>}
+        {!data && loading && <span className="sr-only" role="status">{t("monitorLoading")}</span>}
         <div className="cal-grid" role="group" aria-label={month}>
           {[1,2,3,4,5,6,7].map((i) => <span key={i} className="cal-wd">{t(`calWd${i}`)}</span>)}
           {cells.map((cell, index) => {
@@ -99,7 +108,7 @@ export function CalendarSection({ tick, stats }: { tick: number; stats: Stats | 
               onClick={() => {
                 if (cell.off) {
                   const date = new Date(`${cell.key}T00:00:00`);
-                  setData(null); setErr(""); setYm({ y: date.getFullYear(), m: date.getMonth() + 1 });
+                  setData(null); setErr(false); setLoading(true); setYm({ y: date.getFullYear(), m: date.getMonth() + 1 });
                 }
                 setSel(cell.key);
               }}
@@ -112,6 +121,7 @@ export function CalendarSection({ tick, stats }: { tick: number; stats: Stats | 
               }}>
               <span className="cal-num">{cell.num}</span>
               <span className="cal-events">
+                {!data && loading && index % 5 === 1 && <span className="skeleton sk-cal-event" aria-hidden />}
                 {list.slice(0,2).map((ev) => <span key={ev.id} className={`cal-event ${eventState(ev, now)}`} title={`${fmtTime(ev.created_at)} ${t(ev.kind === "card" ? "evCard" : "evQuota")}`}>
                   <time>{fmtTime(ev.created_at)}</time><span className="cal-event-label">{t(ev.kind === "card" ? "evCard" : "evQuota")}</span>
                 </span>)}
@@ -128,22 +138,19 @@ export function CalendarSection({ tick, stats }: { tick: number; stats: Stats | 
           <p className={sel === today ? "is-today" : ""}>{new Intl.DateTimeFormat(locale, { weekday: "long" }).format(selected)}{sel === today ? ` · ${t("calToday")}` : ""}</p>
         </div>
         <div className="inspector-events">
-          {data && !err && !selectedEvents.length && <p className="cal-empty">{t(sel === predDay ? "calPredOnly" : "calEmptyDay")}</p>}
-          {selectedEvents.map((ev) => <article className="inspector-event" key={ev.id}>
+          {!data && loading && <div className="inspector-skeleton" aria-hidden><span className="skeleton sk-byline" /><span className="skeleton sk-line" /><span className="skeleton sk-line" /><span className="skeleton sk-line short" /></div>}
+          {data && !selectedEvents.length && <p className="cal-empty">{t(sel === predDay ? "calPredOnly" : "calEmptyDay")}</p>}
+          {selectedEvents.map((ev) => <AnimatedContent distance={6} duration={0.3} initialOpacity={0.7} key={ev.id}><article className="inspector-event">
             <div className="ce-head"><time dateTime={ev.created_at} title={t("calEffAt", { time: fmtDateTime(new Date(Date.parse(ev.created_at) + EFFECTIVE_MS).toISOString()) })}>{fmtTime(ev.created_at)}</time><strong>{t(ev.kind === "card" ? "evCard" : "evQuota")}</strong><span className={`ce-state ${eventState(ev, now)}`}>{t(eventState(ev, now) === "done" ? "stDone" : "stPending")}</span></div>
             <PostContent tw={{ ...ev, matched_terms: [] }} />
-          </article>)}
+          </article></AnimatedContent>)}
         </div>
         <div className="inspector-forecast">
           <div className="forecast-label">{t("calForecastLabel")}<span>{t("referenceOnly")}</span></div>
-          {pred ? <><p className="forecast-date">{fmtDateTime(pred.expected_at)}</p><p className="forecast-note">{t("calPredBasis", { h: pred.avg_interval_hours })}{predState !== "pending" && ` · ${t(predState === "over" ? "stOver" : "stDue")}`}</p></> : <p className="forecast-note">{t("rhythmNoForecast")}</p>}
+          {!data && loading ? <div className="forecast-skeleton" aria-hidden><span className="skeleton sk-title" /><span className="skeleton sk-line" /></div> : !data ? <p className="forecast-note">—</p> : pred ? <><p className="forecast-date">{fmtDateTime(pred.expected_at)}</p><p className="forecast-note">{t("calPredBasis", { h: pred.avg_interval_hours })}{predState !== "pending" && ` · ${t(predState === "over" ? "stOver" : "stDue")}`}</p></> : <p className="forecast-note">{t("rhythmNoForecast")}</p>}
         </div>
       </aside>
     </div>
-    <div className="calendar-summary">
-      <span>{t("summaryLatest")} <strong>{stats?.last_hit_at ? fmtDateTime(stats.last_hit_at) : "—"}</strong></span>
-      <span>{t("summaryAvg")} <strong>{stats?.avg_interval_hours != null ? t("summaryHours", { h: stats.avg_interval_hours }) : "—"}</strong></span>
-      <span className="summary-note">{t("predictionDisclaimer")}</span>
-    </div>
+
   </section>;
 }

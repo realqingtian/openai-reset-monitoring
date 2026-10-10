@@ -6,6 +6,7 @@ import { ApiError, j } from "../../api/client";
 import type { Tweet } from "../../api/types";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
+import AnimatedContent from "../../components/reactbits/AnimatedContent";
 import { AccountAvatar } from "../../components/AccountAvatar";
 import { SVG_LANG, SVG_LINK } from "../../components/icons";
 import { TipBubble } from "../../components/TipBubble";
@@ -154,7 +155,8 @@ function mergeTweets(...pages: Tweet[][]): Tweet[] {
   return [...unique.values()].sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id));
 }
 
-export function Feed({ tweets, mirror, history = false, windowHours = 24 }: {
+export function Feed({ tweets, mirror, history = false, windowHours = 24, initialLoading = false, initialFailed = false, onRetry }: {
+  initialLoading?: boolean; initialFailed?: boolean; onRetry?: () => void;
   tweets: Tweet[]; mirror?: string | null; history?: boolean; windowHours?: number; featuredId?: string;
 }) {
   const { t } = useTranslation();
@@ -228,9 +230,12 @@ export function Feed({ tweets, mirror, history = false, windowHours = 24 }: {
   }, [failed, hasMore, loading, loadMore]);
 
   return (
-    <div className="time-wrap feed-scroll" role="region" aria-label={t(history ? "hitHistory" : "recentPosts")}>
+    <div className="time-wrap feed-scroll" role="region" aria-label={t(history ? "hitHistory" : "recentPosts")} aria-busy={initialLoading || loading}>
       <div className="tlist">
-        {visibleTweets.length ? visibleTweets.map((tw) => <TweetCard key={tw.id} tw={tw} mirror={mirror} />) : <div className="empty">{t(history ? "hitEmpty" : "feedEmpty")}</div>}
+        {initialLoading ? <div className="feed-skeleton" role="status" aria-label={t("postsLoading")}>{[0,1,2].map((n) => <div className="post-skeleton" key={n} aria-hidden><span className="skeleton sk-avatar" /><div><span className="skeleton sk-byline" /><span className="skeleton sk-line" /><span className="skeleton sk-line short" /></div></div>)}</div>
+          : visibleTweets.length ? visibleTweets.map((tw) => <AnimatedContent key={tw.id} distance={6} duration={0.3} initialOpacity={0.7}><TweetCard tw={tw} mirror={mirror} /></AnimatedContent>)
+          : initialFailed ? <div className="empty section-load-error"><span>{t("postsLoadFail")}</span><button className="feed-more" type="button" onClick={onRetry}>{t("postsRetry")}</button></div>
+          : <div className="empty">{t(history ? "hitEmpty" : "feedEmpty")}</div>}
       </div>
       {visibleTweets.length > 0 && (
         <div className="feed-pagination">
