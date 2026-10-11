@@ -7,7 +7,7 @@ import type { Status } from "../api/types";
 import { useAuth } from "../context/AuthContext";
 import { useTheme, type ThemeMode } from "../context/ThemeContext";
 import { useToast } from "../context/ToastContext";
-import { NAV_CHECK, NAV_GLOBE, NAV_USER_ROUND, NAV_SUN, NAV_MOON, NAV_MONITOR, NAV_REFRESH_CW, NAV_LOADER_CIRCLE, NAV_CHEVRON_RIGHT, NAV_LOG_IN, NAV_LOG_OUT } from "./nav-icons";
+import { NAV_CHECK, NAV_GLOBE, NAV_USER_ROUND, NAV_SUN, NAV_MOON, NAV_MONITOR, NAV_SCAN_SEARCH, NAV_LOADER_CIRCLE, NAV_CHEVRON_RIGHT, NAV_LOG_IN, NAV_LOG_OUT } from "./nav-icons";
 import { useLangMode } from "../i18n/LangModeContext";
 
 const THEMES: { mode: ThemeMode; label: string; icon: string }[] = [
@@ -160,7 +160,7 @@ export function Nav({ status, onCheckDone, refreshing }: NavProps) {
         </div>
         <div className="nav-actions">
           <button ref={checkTrigger} className={"btn btn-primary nav-check" + (checking ? " loading" : "") + (updated ? " updated" : "")} type="button" aria-label={checkLabel} title={checkLabel} aria-busy={checking} disabled={checking} onClick={() => void checkNow()}>
-            <StaticIcon svg={checking ? NAV_LOADER_CIRCLE : updated ? NAV_CHECK : NAV_REFRESH_CW} />
+            <StaticIcon svg={checking ? NAV_LOADER_CIRCLE : updated ? NAV_CHECK : NAV_SCAN_SEARCH} />
             <span className="nav-check-desktop" aria-hidden>{checkLabel}</span>
             <span className="nav-check-mobile" aria-hidden>{t(checking ? "navCheckingShort" : updated ? "navUpdated" : "navCheckShort")}</span>
           </button>
