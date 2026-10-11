@@ -18,7 +18,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 ROOT = Path(__file__).resolve().parent.parent.parent
 log = logging.getLogger("config")
 
-# 内置命中规则：依据 Tibo 的历史措辞设计（同一条规则内所有正则全部命中才触发）。
+# 内置兜底规则：AI 未启用或判定失败时使用（同一条规则内所有正则全部命中才触发）。
 # 如需自定义，设置环境变量 MONITOR_RULES_JSON（结构与此处一致）覆盖。
 DEFAULT_RULES: list[dict] = [
     {
@@ -42,11 +42,13 @@ DEFAULT_RULES: list[dict] = [
         # 宽松兜底：如 "I will reset usage limits this evening"（预告式，无受众词）；
         # 也覆盖只说 "a reset" 不提限额的公告式措辞（"a reset is also landing by midnight today"）。
         # \ba\s+reset 要求冠词紧贴，避免 "factory reset"/"via reset" 这类非公告用法误报。
+        # 简写公告会省略限额词：如 "Global reset by EOD"、"Put the reset in the bag. All propagated."；
+        # 只补明确短语，不放宽成单独的 reset，避免 "Day 6/ Reset" 这类含义不明确的帖子直接触发。
         "name": "全球重置·英文·宽",
         "enabled": True,
         "all_patterns": [
             r"reset(?:ted|ting|s)?\b",
-            r"(?:usage|rate)[ _-]?limits?|\ba\s+reset\b",
+            r"(?:usage|rate)[ _-]?limits?|\ba\s+reset\b|\bglobal\s+reset\b|\bput\s+the\s+reset\s+in\s+the\s+bag\b",
         ],
     },
     {
@@ -90,7 +92,7 @@ class ServiceConfig(BaseModel):
 
 
 class AiConfig(BaseModel):
-    """AI 服务配置：填了所选厂商的 API Key 即启用（帖子翻译优先走 AI，命中公告可选 AI 复核）。
+    """AI 服务配置：填了所选厂商的 API Key 即启用（公告主判定 + AI 优先翻译）。
 
     厂商默认模型 / 接口地址的注册表在 integrations/ai，这里只承载用户配置的原始值。
     """
@@ -99,7 +101,7 @@ class AiConfig(BaseModel):
     api_key: str = ""
     model: str = ""  # 留空用厂商默认模型
     base_url: str = ""  # 留空用官方接口地址（走中转网关时覆盖）
-    review: bool = True  # 命中公告推送前先经 AI 复核，排除正则误报
+    review: bool = True  # 沿用配置名：开启时每帖由 AI 主判定，关闭时规则兜底
     timeout: int = 60
 
     @property
@@ -238,7 +240,7 @@ class Settings(BaseSettings):
     tg_bot_token: str = ""
     tg_chat_id: str = ""
 
-    # -- AI 能力（翻译 + 命中复核；填所选厂商的 Key 即启用） --
+    # -- AI 能力（翻译 + 公告主判定；填所选厂商的 Key 即启用） --
     monitor_ai_provider: str = "deepseek"  # deepseek / openai / anthropic / glm
     deepseek_api_key: str = ""
     openai_api_key: str = ""
@@ -246,7 +248,8 @@ class Settings(BaseSettings):
     glm_api_key: str = ""
     monitor_ai_model: str = ""  # 留空用所选厂商默认模型
     monitor_ai_base_url: str = ""  # 留空用官方接口地址，中转网关时覆盖
-    monitor_ai_review: bool = True  # 命中公告推送前的 AI 复核（AI 未配置时不生效）
+    monitor_ai_review: bool = True  # AI 公告主判定（沿用旧配置名；未配置或关闭时规则兜底）
+    monitor_ai_forecast: bool = True  # AI 时间分析独立开关；读接口只消费缓存
     monitor_ai_timeout: int = 60
 
     @model_validator(mode="before")

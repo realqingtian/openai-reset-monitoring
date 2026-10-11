@@ -4,6 +4,8 @@ from typing import Optional
 
 from pydantic import BaseModel
 
+from app.schemas.forecast import ResetForecastOut
+
 
 class CalendarEventOut(BaseModel):
     """单次重置事件：一条命中公告归入一类（额度重置 / 发重置卡）。"""
@@ -13,6 +15,7 @@ class CalendarEventOut(BaseModel):
     text: str
     url: str
     kind: str  # quota=额度重置 card=发重置卡
+    phase: str = "unknown"  # 不能凭公告年龄声称已生效
 
 
 class CalendarPredictionOut(BaseModel):
@@ -28,3 +31,4 @@ class CalendarOut(BaseModel):
 
     events: list[CalendarEventOut] = []
     prediction: Optional[CalendarPredictionOut] = None
+    forecast: ResetForecastOut = ResetForecastOut()

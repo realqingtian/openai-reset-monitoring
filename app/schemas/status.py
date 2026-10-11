@@ -29,12 +29,12 @@ class NotifierState(BaseModel):
 
 
 class AiState(BaseModel):
-    """AI 能力状态（翻译 + 命中复核）。"""
+    """AI 能力状态（翻译 + 公告主判定），字段名沿用旧 API。"""
 
     provider: str
     model: str  # 实际生效的模型（显式配置或厂商默认）
     enabled: bool  # 是否配置了所选厂商的 API Key
-    review: bool  # 命中推送前的 AI 复核开关（未配置 AI 时不生效）
+    review: bool  # AI 主判定开关（未配置 AI 时不生效，沿用旧字段名）
 
 
 class RuleInfo(BaseModel):

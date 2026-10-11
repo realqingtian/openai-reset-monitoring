@@ -24,6 +24,8 @@ from app.db import database
 from app.services import matcher, poller, rescan
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+# RSSHub 鉴权通过 query 参数传递，httpx 的 INFO 请求日志会泄露参数，保留错误日志即可。
+logging.getLogger("httpx").setLevel(logging.WARNING)
 ROOT = Path(__file__).resolve().parent.parent
 # 前端独立工程（frontend/）的构建产物：面板是 React 单页应用，部署前需先构建
 # （cd frontend && bun install && bun run build）；Docker 镜像在构建阶段自动完成

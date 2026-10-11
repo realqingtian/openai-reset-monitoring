@@ -61,7 +61,7 @@ NOTIFY_TEXTS = {
         "translation": "🌐 译文",
         "rule": "🏷 命中规则",
         "terms_join": "、",
-        "ai_review": "🤖 AI 复核",
+        "ai_review": "🤖 AI 判定",
         "link": "🔗 直达推文",
         "truncated": "…（内容过长已截断）",
         "test_title": "🔔 Codex 重置监控 · 测试消息",
@@ -91,7 +91,7 @@ NOTIFY_TEXTS = {
         "translation": "🌐 Translation",
         "rule": "🏷 Matched rule",
         "terms_join": ", ",
-        "ai_review": "🤖 AI review",
+        "ai_review": "🤖 AI classification",
         "link": "🔗 Open tweet",
         "truncated": "… (truncated)",
         "test_title": "🔔 Codex Reset Monitor · Test",
@@ -125,7 +125,7 @@ def _clip(text, limit, suffix):
 
 
 def _hit_message(tweet, mres, texts, extra=None):
-    """命中公告消息：账号 → 双时区时间 → 原文 → 译文（有则附）→ 命中规则与命中词 → AI 结论 → 链接。
+    """命中公告消息：账号 → 双时区时间 → 原文 → 译文（有则附）→ 识别来源与命中词 → AI 结论 → 链接。
 
     extra: {author_name, ai_verdict, ai_reason, translation}，由通知用例层组装，各项可缺省。
     """
@@ -151,7 +151,7 @@ def _hit_message(tweet, mres, texts, extra=None):
     if terms:
         rule_line += f"{texts['open_paren']}{texts['terms_join'].join(terms)}{texts['close_paren']}"
     lines += ["", rule_line]
-    # 只有 AI 确认的公告才会走到推送（判定无关在用例层已被拦下），这里展示复核依据
+    # AI 有效结论为 hit 时展示依据；规则兜底也可推送，但不能冒充 AI 确认。
     if extra.get("ai_verdict") == "hit" and (extra.get("ai_reason") or "").strip():
         lines.append(f"{texts['ai_review']}{c}{str(extra['ai_reason']).strip()}")
     lines += ["", f"{texts['link']}{c}", tweet["url"]]

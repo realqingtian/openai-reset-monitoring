@@ -101,11 +101,12 @@ frontend/         # React 独立前端工程（Vite + React 19 + TS，bun 管理
 - 检查日志面板固定取最近 200 条（`/api/polls?limit=200`，API 上限 200），数据库保留 30 天；徽章有悬停说明。
 - 数据源自告警（`services/source_watch.py`）：连续 `MONITOR_SOURCE_ALERT_THRESHOLD`（默认 3）轮检查全部失败经渠道告警，恢复后发恢复通知；重发间隔 `MONITOR_SOURCE_ALERT_REPEAT_MINUTES`（默认 60，0 不重发）。状态存 `app_state` 表（重启不重复打扰、不漏发恢复）；未配置任何源不算失败；DEMO 模式整体跳过。
 - 推文保留分级：未命中 30 天滚动清理、命中 180 天（`MONITOR_TWEET/HIT_RETENTION_DAYS`），供「重置节奏」统计卡（`/api/stats`）采样；此前推文从不清理，旧库首次升级会补执行清理。
-- AI 能力（`integrations/ai/` 多厂商接入：deepseek / openai / anthropic / glm，`MONITOR_AI_PROVIDER` 切换，各厂商独立 Key「填了即启用」）：帖子翻译 AI 优先，失败自动回退 Google / MyMemory 免费通道；正则命中推送前默认 AI 复核（`MONITOR_AI_REVIEW=false` 关闭），结论存 `tweets.ai_verdict/ai_reason`（每帖只复核一次，补推与面板徽章复用），miss 不推送也不标已推送、面板带「AI 判定无关」徽章、节奏统计剔除该样本；推送模板自带译文块（`_hit_message` 的 extra），企微渠道按 UTF-8 字节截断并保底直达链接。**AI 调用失败一律 fail-open**（按正则命中照常推送、翻译回退免费通道），不得改成 fail-closed。
+- AI 能力（`integrations/ai/` 多厂商接入：deepseek / openai / anthropic / glm，`MONITOR_AI_PROVIDER` 切换，各厂商独立 Key「填了即启用」）：帖子翻译 AI 优先，失败自动回退 Google / MyMemory 免费通道；2026-10-11 用户要求改为每条新帖直接由 AI 主判定，正则只作兜底（`MONITOR_AI_REVIEW=false` 沿用旧开关名，关闭主判定，翻译仍可用）。`services/classifier.py` 是轮询与回扫的共享入口，有效结论存 `tweets.ai_verdict/ai_reason`（每帖成功判定一次，重启、补推与面板复用）；有效 hit 不需命中任何规则，有效 miss 不被规则覆盖、不标命中、不推送也不标已推送，面板保留「AI 判定无关」徽章。推送模板自带译文块（`_hit_message` 的 extra），企微渠道按 UTF-8 字节截断并保底直达链接。**AI 未配置、关闭、超时、报错或响应无效时一律回退规则，失败不得缓存成 miss**（规则命中照常推送、翻译回退免费通道），不得改成 fail-closed。
 - 登录鉴权（JWT，`MONITOR_ADMIN_PASSWORD` 留空即完全关闭）：单管理员账密经 `POST /api/login` 换 HS256 JWT（默认 24h，`MONITOR_TOKEN_EXPIRE_HOURS`；密钥未显式配置时从口令派生，改口令全量失效）。需登录的「操作」：poll-now / test-notify / translate；读接口与面板公开，匿名 `/api/tweets` 窗口钳制 24h。前端 JWT 存 localStorage `crm-jwt`，401 弹登录窗自动重试。
 - DEMO 模式隔离是双重的：独立库 `data/demo.db` + 跳过全部真实渠道推送（`notifiers._dispatch` 统一拦截），演示命中保持未推送状态。
 - 推送按渠道粒度判定送达：全部尝试渠道成功才标记已推送；失败渠道由每轮轮询开头的补推扫描只向失败渠道重发；命中时未配置渠道的推文不补推（面板历史仍在）。
-- 启动回扫（`services/rescan.py`）：每次启动用当前规则重扫 30 天内未命中推文并补 `mark_hit`（面板历史自愈）；只补推 24 小时内发布且从未有过渠道尝试的错过公告，已推送/已尝试的不重发，24 小时外只补记录不推送。
+- 启动回扫（`services/rescan.py`）：每次启动按 AI 主判定、规则兜底检查 30 天内未推送帖子，复用有效结论；AI 启用后也处理尚无 AI 结论的旧版正则候选，确认无关则撤销命中（已推送记录不重判）。只补推 24 小时内发布且从未有过渠道尝试的错过公告，已推送/已尝试的不重发，24 小时外只补记录不推送；首次启用 AI 的历史调用量随未判定帖子数量增加。
+- 重置时间分析（`services/reset_forecast.py`）：`MONITOR_AI_FORECAST=true` 默认启用，独立于主判定开关；轮询通知处理后分析最近 60 天最多 80 条已有候选公告，缓存到现有 `app_state`。明确未来时间/时区优先；否则仅用同账号、六小时内去重的额度完成公告，至少 5 次且间隔稳定才估计低可信度窗口。发卡、预告与未知阶段不混入完成间隔；时区未知的新预告停止历史外推，过期窗口不自动顺延，多账号停止混算，读 API 不调用 AI。预测失败不影响公告推送；日历不再默认六小时后生效。
 - repositories 逐函数一 session、逐条事务，WAL 下够用；批量优化需整体权衡再做。
 - API 文档与测试通知仅在 `MONITOR_ENV=debug` 开放。
 

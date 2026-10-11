@@ -1,7 +1,7 @@
-"""启动回扫：用当前规则重扫保留窗口内的历史推文，补齐命中记录与错过的推送。
+"""启动回扫：用 AI 主判定（规则兜底）重扫历史推文，补齐命中记录与错过的推送。
 
-命中判定只发生在推文首次入库那一刻，规则调整不会追溯历史；每次启动重扫一遍，
-面板命中记录随规则演进自愈。补推送是用户确认的取舍：只补推 24 小时内发布且
+有效 AI 结论复用，尚未判定的历史帖子采用当前识别流程，面板记录随识别能力自愈。
+补推送是用户确认的取舍：只补推 24 小时内发布且
 从未有过推送尝试的错过公告，更早的只补记录不再推送（避免陈旧告警打扰）；已有
 渠道尝试记录的推文仍归每轮轮询开头的补推扫描管，避免重复发送。
 """
@@ -13,7 +13,7 @@ from typing import Any
 from app.core.timeutil import hours_ago_iso
 from app.repositories import notify_retry
 from app.repositories import tweets as tweet_repo
-from app.services.matcher import match_text
+from app.services.classifier import classify_tweet
 from app.services.notify import dispatch_hit_dedup
 
 log = logging.getLogger("rescan")
@@ -39,18 +39,21 @@ async def rescan_once(application) -> None:
         cfg = application.state.cfg
         rules = application.state.rules
         try:
-            # 1) 未命中的用当前规则重判，命中的补 mark_hit（只补面板记录，不限帖龄）。
+            # 1) 未命中及尚无 AI 结论的旧版候选共用主判定；有效结论复用，已推送记录不重判。
             #    复用仓库现成的 tweets_since 读路径，命中/推送候选在 Python 侧分筛：
             #    单账号推文表量级很小，不值得为此加新的 SQL 查询。
             rows = await tweet_repo.tweets_since(hours_ago_iso(SCAN_WINDOW_HOURS))
             rescanned = patched = 0
+            ai_active = cfg.ai.enabled and cfg.ai.review
             for tw in rows:
-                if tw["matched"] != 0:
+                if tw["notified"] == 1:
+                    continue
+                if tw["matched"] == 1 and not ai_active and tw.get("ai_verdict") not in ("hit", "miss"):
                     continue
                 rescanned += 1
-                mres = match_text(tw["text"], rules)
-                if mres["matched"]:
-                    await tweet_repo.mark_hit(tw["id"], mres["rule"], mres["terms"])
+                was_matched = tw["matched"] == 1
+                mres = await classify_tweet(cfg, application.state.client, tw, rules)
+                if mres["matched"] and not was_matched:
                     patched += 1
 
             # 2) 补推：24 小时内命中但从未推送过的（重取一次以反映步骤 1 的新标记），
@@ -63,6 +66,6 @@ async def rescan_once(application) -> None:
                     continue
                 if await dispatch_hit_dedup(cfg, application.state.client, tw, _stored_match(tw)):
                     pushed += 1
-            log.info("回扫完成：重扫未命中 %d 条，补命中 %d 条，补推 %d 条", rescanned, patched, pushed)
+            log.info("回扫完成：检查 %d 条，补命中 %d 条，补推 %d 条", rescanned, patched, pushed)
         except Exception as e:
             log.exception(f"回扫任务异常: {e}")

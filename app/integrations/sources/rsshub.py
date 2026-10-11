@@ -4,6 +4,7 @@ import hashlib
 import html as htmllib
 import re
 import xml.etree.ElementTree as ET
+from typing import Optional
 
 from app.core.config import RsshubConfig
 from app.core.timeutil import parse_dt
@@ -56,13 +57,19 @@ def _safe_parse(content):
     return ET.fromstring(content)
 
 
-async def fetch(client, scfg: RsshubConfig, account, backfill=False, **_):
+async def fetch(client, scfg: RsshubConfig, account, backfill=False, history_count: Optional[int] = None, **_):
     base = (scfg.base_url or "").rstrip("/")
     route = (scfg.route or "twitter/user").strip("/")
     url = f"{base}/{route}/{account}"
     # twitter/user 路由默认排除回复；开启回复监控时按 routeParams 约定追加（URLSearchParams 语法）
+    route_params = []
     if scfg.include_replies:
-        url += "/includeReplies=true"
+        route_params.append("includeReplies=true")
+    # 显式历史分析才扩大抓取量；日常轮询不增加上游负担。
+    if history_count is not None and route == "twitter/user":
+        route_params.append(f"count={min(200, max(20, history_count))}")
+    if route_params:
+        url += "/" + "&".join(route_params)
     # 实例启用了 ACCESS_KEY 鉴权时自动附带 key 参数
     params = {"key": scfg.access_key} if scfg.access_key else None
     resp = await client.get(

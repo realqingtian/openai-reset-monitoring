@@ -132,8 +132,15 @@ async def mark_notified(tweet_id: str):
         await s.commit()
 
 
+async def clear_match(tweet_id: str):
+    """AI 判定无关时撤销旧版正则候选，保留 AI 理由供最近帖子展示。"""
+    async with session_factory() as s:
+        await s.execute(update(Tweet).where(Tweet.id == tweet_id).values(matched=0, rule_name=None, matched_terms="[]"))
+        await s.commit()
+
+
 async def save_ai_review(tweet_id: str, verdict: str, reason: str):
-    """落 AI 复核结论（每帖只复核一次，结论随推文生命周期保留，补推扫描据此免二次调用）。"""
+    """落有效 AI 判定结论（每帖成功判定一次，结论随推文生命周期保留，补推直接复用）。"""
     async with session_factory() as s:
         await s.execute(
             update(Tweet).where(Tweet.id == tweet_id).values(ai_verdict=verdict, ai_reason=reason),

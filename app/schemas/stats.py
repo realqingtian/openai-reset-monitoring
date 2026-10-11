@@ -4,6 +4,8 @@ from typing import Optional
 
 from pydantic import BaseModel
 
+from app.schemas.forecast import ResetForecastOut
+
 
 class DayHitOut(BaseModel):
     """单日命中计数（按 UTC 日聚合），供重置节奏热力图。"""
@@ -20,6 +22,7 @@ class StatsOut(BaseModel):
     avg_interval_hours: Optional[float] = None
     last_hit_at: Optional[str] = None
     next_expected_at: Optional[str] = None
+    forecast: ResetForecastOut = ResetForecastOut()
     since: Optional[str] = None
     recent_hits: list[str] = []  # 最近若干次命中的发布时间（升序），供迷你时间线
     daily_hits: list[DayHitOut] = []  # 按天命中计数（UTC 日，升序），供热力图

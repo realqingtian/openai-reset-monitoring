@@ -6,8 +6,8 @@ Watches the public posts of X (Twitter) user [@thsottiaux](https://x.com/thsotti
 OpenAI Codex) over the last 24 hours. When a "**global usage-limit reset**" announcement shows up, it raises an
 alert on the dashboard and pushes notifications to Feishu / DingTalk / WeCom / Bark / Telegram.
 
-> Background: Tibo follows a "weekly reset" cadence (e.g. *"Usage limits have been reset for all paid ChatGPT Work
-> and Codex users"*). This tool tells you the moment it happens.
+> Background: global reset announcements are discretionary and do not guarantee a weekly schedule.
+> This tool tracks public announcements, rather than personal account refresh times.
 
 ![Dashboard overview](docs/panel.png)
 
@@ -17,18 +17,17 @@ alert on the dashboard and pushes notifications to Feishu / DingTalk / WeCom / B
   by tweet ID into SQLite
 - 🔀 **Dual-source failover**: twitterapi.io (third-party crawl API) and RSSHub (free) fail over automatically when
   both are configured; with only one filled, that one is used
-- 🎯 **Keyword matching**: regex rules designed around Tibo's real wording (Chinese & English); matched terms are
-  highlighted on the dashboard
+- 🎯 **Rule fallback**: Chinese and English regex rules detect announcements when AI is unavailable, disabled,
+  or fails; matched terms are highlighted on the dashboard
 - 🔔 **Five push channels**: Feishu / DingTalk / WeCom / Bark / Telegram; each hit pushes at most once per channel,
   failed channels are retried automatically (succeeded ones are never re-sent), duplicate announcements never disturb twice
 - 🩺 **Source self-alerting**: when a data source keeps failing, all configured channels get an alert, and a recovery
-- 🤖 **AI review (optional)**: with a DeepSeek / OpenAI / Claude / GLM key configured, every regex hit is
-  re-checked by the AI before pushing — false positives no longer ping your channels; rejected posts stay
-  on the panel with a badge
+- 🤖 **AI-first detection (optional)**: with the selected provider's key configured, AI judges every new post
+  directly, without a keyword prerequisite; announcements push, non-announcements are cached and badged
 - 🩺 **Source self-alerting**: after N consecutive failed cycles the monitor alerts through all channels and
   sends a recovery notice once polling is healthy again — no more silently dead monitors
-- 📈 **Reset rhythm stats**: average interval, last hit and the next expected window derived from hit history,
-  with a mini timeline
+- 📈 **Reset rhythm stats**: AI separates quota resets, cards and previews; a low-confidence window requires
+  at least five independent completion announcements and stable intervals; insufficient evidence pauses forecasting
 - 🔐 **JWT login auth**: the dashboard stays anonymously viewable (24-hour data); actions like "Check now" guide
   visitors to sign in as admin. JWT (HS256) is valid for 24 hours by default, configurable
 - 📊 **Dashboard**: alert banner + 24-hour post feed on the left; live stats, sources, channels, hit history and
@@ -265,8 +264,8 @@ docker run -d --name rsshub -p 1200:1200 \
 appears in the top-right of the dashboard; click it and every configured channel receives a test message. Switch back
 to `production` afterwards (the button hides again; normal pushing is unaffected).
 
-**A push looks like this** (language set by `MONITOR_NOTIFY_LANG`; with AI configured, the translation
-and the AI review verdict are attached automatically):
+**A push looks like this** (language set by `MONITOR_NOTIFY_LANG`; AI hits include the classification reason,
+and translations prefer AI):
 
 ```
 🚨 Codex Reset Monitor Hit
@@ -280,17 +279,17 @@ Usage limits have been reset for all paid ChatGPT Work and Codex users. …
 🌐 Translation:
 所有付费 ChatGPT Work 与 Codex 用户的用量限制已重置。…
 
-🏷 Matched rule: 全球重置·英文 (Usage limits、reset)
-🤖 AI review: A clear announcement that usage has been reset for all paid users
+🏷 Matched rule: AI 判定公告
+🤖 AI classification: A clear announcement that usage has been reset for all paid users
 
 🔗 Open tweet:
 https://x.com/thsottiaux/status/…
 ```
 
-> The matched-rule name comes from your rule configuration; the built-in rule names are Chinese —
-> override them with `MONITOR_RULES_JSON` if you want English names.
+> AI hits use the source label `AI 判定公告`. Fallback rule names come from your configuration;
+> `MONITOR_RULES_JSON` can customize those names.
 
-### AI capabilities (optional: hit review + translation)
+### AI capabilities (optional: announcement detection + translation)
 
 Configure any provider's API key and both capabilities go live; leave them empty and behavior is
 identical to before.
@@ -304,35 +303,60 @@ identical to before.
 
 - `MONITOR_AI_PROVIDER` picks the active provider (default `deepseek`); keys of several providers can
   be kept at once and switched anytime
-- **Hit review**: a regex hit is only a candidate — before pushing, the AI judges whether the post is
-  really a reset/subscription announcement, so false positives no longer ping your channels. Such posts
-  stay on the panel with an "AI: not related" badge (hover for the reason); `MONITOR_AI_REVIEW=false` disables it
+- **Primary detection**: AI judges every newly stored post for resets, quota changes, and subscription pause
+  or recovery announcements, without a regex gate. Valid `hit` results are stored with the `AI 判定公告` label
+  and can push. Valid `miss` results do not push or count as hits; recent posts retain an "AI: not related" badge.
+  The existing `MONITOR_AI_REVIEW=false` switch disables detection for new posts; AI translation remains available
 - **AI translation**: panel translations and the translation attached to pushes prefer AI, with automatic
   fallback to the free channels (Google / MyMemory)
-- **Safety first**: AI timeouts or errors always degrade gracefully (regex hits still push; translation
-  falls back) — polling and pushing are never blocked by the AI
+- **Fallback**: missing AI configuration, disabled detection, timeouts, errors, and invalid JSON/fields fall
+  back to rules. Rule hits still push; failures are never cached as `miss`. Valid AI misses override rules.
+  Translation failures still use the free channels
+- **Calls and caching**: successful hit/miss decisions are stored once per post and reused by repeat fetches,
+  restarts, and channel retries. Calls now scale with all new posts, instead of only regex candidates; enabling
+  AI also classifies unreviewed posts from the past 30 days on startup. Failed decisions remain empty and can
+  be retried on the next startup rescan
+- **Reset time analysis**: `MONITOR_AI_FORECAST=true` is enabled independently of detection. After notification
+  handling, AI analyzes up to 80 existing candidate posts from the past 60 days, distinguishing quota resets,
+  reset cards and other announcements, and completed/scheduled/unknown phases. Explicit future dates with
+  known timezones take priority; ambiguous EOD announcements do not become exact times. Completion posts
+  within six hours are grouped per account. Statistical extrapolation requires at least five independent
+  completion announcements and stable recent intervals. Publication times are proxies, not actual quota
+  measurements or a guarantee of the next manual reset. Expired windows never roll forward; accounts are
+  not combined. Analysis is cached in the existing `app_state` table and refreshed only when input or model
+  configuration changes. Public reads never call AI. Failures use conservative statistics with a one-hour
+  retry cooldown. Time analysis does not change notification decisions or invent missing historical data.
 - `MONITOR_AI_MODEL` / `MONITOR_AI_BASE_URL` override the default model and official endpoint (for gateways)
 
-### Match rules
+### Fallback match rules
 
-Five built-in rules (see `DEFAULT_RULES` in `app/core/config.py`). Logic: **within one rule, every keyword must
-match (case-insensitive) for a hit**.
+These rules apply only when AI has no valid decision. Five built-in rules (see `DEFAULT_RULES` in
+`app/core/config.py`): **within one rule, every keyword must match (case-insensitive) for a hit**.
+Valid AI hit/miss decisions do not need to satisfy these rules.
 
 - **English reset**: `reset` ∧ `usage/rate limits` ∧ (`paid`/`everyone`/`all`/`codex`…) — covers
   *"Usage limits have been reset for all paid…"*, *"I have reset everyone's Codex usage limits"*, etc.
 - **Chinese reset**: `重置` ∧ (`用量`/`限额`/`额度`/`付费`/`订阅`/`全球`) — fallback
-- **Broad English reset**: `reset` ∧ (`usage/rate limits` ∨ `a reset`) — catches heads-up posts like
+- **Broad English reset**: `reset` ∧ (`usage/rate limits` ∨ `a reset` ∨ `global reset` ∨ `put the reset in the bag`) — catches heads-up posts like
   *"I will reset usage limits this evening"* as well as announcements without the word "limits" such as
-  *"a reset is also landing by midnight today"* (the article constraint avoids "factory reset" false positives)
+  *"a reset is also landing by midnight today"* (the article constraint avoids "factory reset" false positives);
+  also covers shorthand announcements such as *"Global reset by EOD"* and
+  *"Put the reset in the bag. All propagated."*, without matching a standalone `reset`
 - **Subscription pause (EN)**: `pause/suspend/halt/stop/close/on hold/no longer` ∧ (`subscription`/`sign-up`) —
   covers *"we're pausing subscriptions to our $200 Pro plan"*
 - **Subscription resume (EN)**: `reopen/resume/unpause/back/again` ∧ (`subscription`/`sign-up`/`pro`) —
   covers *"Pro subscriptions are back"* (action verbs deliberately broad: a false positive costs one push,
   a miss costs you the recovery)
 
-To fix false positives/negatives, override with the `MONITOR_RULES_JSON` env var (JSON array, same structure as
+To adjust fallback coverage, override with the `MONITOR_RULES_JSON` env var (JSON array, same structure as
 built-ins; invalid JSON falls back to the built-ins with a log line). To watch other accounts (e.g. @sama,
 @OpenAI), set `MONITOR_ACCOUNTS` to a comma-separated list.
+
+Redeploy or restart the backend to load updated detection logic or configuration. The startup rescan reuses
+cached AI decisions and patches missed hits from the past 30 days. With AI enabled, it also classifies legacy
+regex candidates that have no AI decision, clearing hits judged unrelated. Already-notified records are not
+reclassified. Only announcements published within 24 hours, unnotified and with no channel attempts, can push;
+content deduplication still applies. `MONITOR_RULES_JSON` replaces fallback rules without limiting AI detection.
 
 ## API
 
@@ -343,7 +367,7 @@ built-ins; invalid JSON falls back to the built-ins with a log line). To watch o
 | `GET /api/tweets?hours=24` | posts within the time window |
 | `GET /api/hits` | hit history |
 | `GET /api/polls` | check logs |
-| `GET /api/stats` | reset rhythm stats (avg interval / last hit / expected window) |
+| `GET /api/stats` | reset rhythm stats (completion median / hit heatmap / AI reference window and evidence) |
 | `GET /api/translate?id=…&to=zh` | translate a post (login required; `to` supports `zh` / `en`, cached in SQLite) |
 | `POST /api/login` | admin login, issues a JWT |
 | `POST /api/poll-now` | trigger a check immediately (login required) |
@@ -363,15 +387,14 @@ OpenAPI schema and is available only with `MONITOR_ENV=debug` — production doe
 - **Window & alerts**: the dashboard shows the last 24 hours (`MONITOR_LOOKBACK_HOURS` configurable); only
   "freshly stored and in-window" hits trigger pushes — backfilled historical hits are stored without pushing,
   so old news never wakes you in the middle of the night
-- **Startup rescan**: on every start, the last 30 days of posts are re-checked with the current rules and hit
-  records are backfilled (rule changes heal history); missed announcements published within 24 hours that were
+- **Startup rescan**: on every start, unnotified posts from the last 30 days use AI-first detection with rule
+  fallback, reusing cached AI decisions; missed announcements published within 24 hours that were
   never pushed get pushed, older ones only get their records backfilled
 - **No duplicate noise**: the same announcement posted as several tweets (highly similar content) pushes only the
   first one
-- **AI review degradation**: with no AI configured the review is skipped entirely; on timeout/error the post
-  still pushes per the regex hit (fail-open). Each post is reviewed at most once — the verdict is stored with
-  the tweet and reused by retry scans and panel badges, so no repeated AI calls. Reset-rhythm stats exclude
-  posts the AI judged unrelated, keeping the average interval clean of false-positive samples
+- **AI detection fallback**: no valid AI decision means rule fallback (fail-open). Valid misses block initial
+  pushes, startup recovery, and channel retries without marking the post notified. Successful decisions are
+  cached once per post; reset-rhythm stats exclude posts judged unrelated
 - **Latency**: the default poll interval is 5 minutes. Reset announcements usually land hours before they take
   effect, so 5 minutes is enough; lowering it gets you there sooner and costs more per fetch
 - **Self-alerting**: after `MONITOR_SOURCE_ALERT_THRESHOLD` (default 3) consecutive fully-failed cycles, all
@@ -444,7 +467,8 @@ app/
 ├── db/
 │   └── database.py    # SQLite async engine / sessions / table creation & defensive migrations
 ├── services/          # business layer: poll scheduling / matching / status aggregation / queries / translation / test notify / source watch
-│   ├── matcher.py     # keyword match rules
+│   ├── classifier.py  # AI-first detection, decision caching, and rule fallback
+│   ├── matcher.py     # fallback keyword rules
 │   ├── poller.py      # polling scheduler: fetch → dedup → match → push
 │   ├── source_watch.py# source self-alerting: channel alerts on repeated failures, recovery notice
 │   └── stats.py       # reset rhythm stats (/api/stats)

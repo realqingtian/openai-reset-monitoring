@@ -1,4 +1,4 @@
-"""轮询调度：定时拉取账号时间线 → 去重入库 → 匹配规则 → 命中则全渠道推送；
+"""轮询调度：定时拉取账号时间线 → 去重入库 → AI 主判定（规则兜底）→ 命中则全渠道推送；
 渠道失败的命中由每轮开头的补推扫描按渠道重发（成功渠道不重发）。
 每轮结束后交由 source_watch 评估数据源健康（连续失败自告警）。"""
 
@@ -13,8 +13,8 @@ from app.integrations.sources import fetch_with_failover
 from app.repositories import notify_retry
 from app.repositories import polls as poll_repo
 from app.repositories import tweets as tweet_repo
-from app.services import account_meta, source_watch
-from app.services.matcher import match_text
+from app.services import account_meta, reset_forecast, source_watch
+from app.services.classifier import classify_tweet
 from app.services.notify import dispatch_hit_dedup, push_extra
 
 log = logging.getLogger("poller")
@@ -30,6 +30,8 @@ async def _retry_failed_pushes(app):
     window_start = hours_ago_iso(cfg.lookback_hours)
     attempted = await notify_retry.attempted_tweet_ids()
     for tw in await notify_retry.retry_candidates(window_start, attempted):
+        if tw.get("ai_verdict") == "miss":
+            continue
         failed = [ch for ch, ok in (await notify_retry.latest_channel_results(tw["id"])).items() if not ok]
         if not failed:
             await tweet_repo.mark_notified(tw["id"])
@@ -82,14 +84,14 @@ async def run_poll(app) -> dict:
                 if not await tweet_repo.upsert_tweet(tw):
                     continue
                 new_count += 1
-                mres = match_text(tw["text"], rules)
+                mres = await classify_tweet(cfg, app.state.client, tw, rules)
                 if not mres["matched"]:
                     continue
-                await tweet_repo.mark_hit(tw["id"], mres["rule"], mres["terms"])
                 # 只对时间窗口内的新推文推送告警，避免首次回填历史时误扰
                 if tw["created_at"] >= window_start:
                     await dispatch_hit_dedup(cfg, app.state.client, tw, mres)
             log.info("账号 @%s 检查完成：来源=%s 新推文=%d 总抓取=%d", account, used, new_count, len(tweets))
+        await reset_forecast.refresh(cfg, app.state.client)
     if summary["failed_accounts"]:
         summary["ok"] = False
         summary["errors"] = summary["errors"][:5]

@@ -1,17 +1,14 @@
-"""重置节奏统计：基于命中历史推算平均间隔与下次预期窗口，供面板统计卡展示。
-
-估算口径：一次命中 ≈ 一次重置公告；转发/修正可能带来短间隔噪声样本（推送侧有
-相似度去重，命中侧没有），统计只求趋势参考，不做精确承诺。相邻零间隔（同刻）
-的样本不计入均值，避免除零与偏斜。
-"""
+"""命中历史仍独立统计；重置预测只使用完成事件与 AI 时间分析。"""
 
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+from app.core.config import Settings
 from app.core.timeutil import iso_utc
 from app.repositories import tweets as tweet_repo
 from app.schemas import DayHitOut, StatsOut
+from app.services import reset_forecast
 
 # 采样上限：保留期内命中量级远小于此，仅作防御
 SAMPLE_LIMIT = 500
@@ -26,14 +23,14 @@ def _parse(iso) -> Optional[datetime]:
         return None
 
 
-async def assemble_stats() -> StatsOut:
+async def assemble_stats(cfg: Optional[Settings] = None) -> StatsOut:
     rows = await tweet_repo.matched_tweets(SAMPLE_LIMIT)
     # AI 复核判定为无关的「命中」是正则误报，不进入节奏采样（否则平均间隔被噪声拉偏）
     hits = [h for h in rows if h.get("ai_verdict") != "miss"]
     times = sorted(t for t in (_parse(h["created_at"]) for h in hits) if t)
     now = datetime.now(timezone.utc)
-    intervals = [(b - a).total_seconds() / 3600 for a, b in zip(times, times[1:]) if (b - a).total_seconds() > 0]
-    avg = sum(intervals) / len(intervals) if intervals else None
+    forecast = await reset_forecast.snapshot(cfg, now)
+    avg = forecast.median_interval_hours
     last = times[-1] if times else None
     daily = Counter(t.date().isoformat() for t in times)
     return StatsOut(
@@ -41,7 +38,8 @@ async def assemble_stats() -> StatsOut:
         hits_30d=sum(1 for t in times if t >= now - timedelta(days=30)),
         avg_interval_hours=round(avg, 1) if avg else None,
         last_hit_at=iso_utc(last) if last else None,
-        next_expected_at=iso_utc(last + timedelta(hours=avg)) if avg and last else None,
+        next_expected_at=forecast.expected_at,
+        forecast=forecast,
         since=iso_utc(times[0]) if times else None,
         recent_hits=[iso_utc(t) for t in times[-SPARK_POINTS:]],
         daily_hits=[DayHitOut(day=d, count=n) for d, n in sorted(daily.items())],
