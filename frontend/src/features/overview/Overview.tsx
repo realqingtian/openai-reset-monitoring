@@ -7,32 +7,11 @@ import { j } from "../../api/client";
 import type { Poll, SourceState, Stats, Status, Tweet } from "../../api/types";
 import { ago, fmt, hl, localOffsetLabel, safeUrl } from "../../utils/format";
 import { useLang } from "../../i18n/useLang";
+import { ForecastSummary } from "../forecast/ForecastSummary";
 import type { Lang } from "../../utils/format";
 import CountUp from "../../components/reactbits/CountUp";
+import { SVG_CLOSE } from "../../components/icons";
 import { TestNotifyButton } from "../../components/TestNotifyButton";
-
-/* 逐秒刷新的本地时钟：倒计时与进度条的「活着」来源（数据仍 60s 拉新，走动不依赖轮询） */
-function useNow(intervalMs = 1000): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), intervalMs);
-    return () => clearInterval(id);
-  }, [intervalMs]);
-  return now;
-}
-
-/* 时长压缩：>24h 为「N天 HH:MM:SS」，否则「HH:MM:SS」 */
-function fmtCountdown(ms: number, lang: Lang): string {
-  const s = Math.max(0, Math.floor(ms / 1000));
-  const d = Math.floor(s / 86400);
-  const clock = `${String(Math.floor((s % 86400) / 3600)).padStart(2, "0")}:${String(Math.floor((s % 3600) / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
-  return d > 0 ? (lang === "zh" ? `${d}天 ${clock}` : `${d}d ${clock}`) : clock;
-}
-
-function fmtHours(h: number, lang: Lang): string {
-  if (h >= 48) return lang === "zh" ? (h / 24).toFixed(1) + " 天" : (h / 24).toFixed(1) + " d";
-  return lang === "zh" ? Math.round(h) + " 小时" : Math.round(h) + " h";
-}
 
 /* ---------- 阅读页标题与监控状态 ---------- */
 
@@ -64,37 +43,10 @@ export function MonitorIntro({ status, view }: { status: Status | null; view: "f
 
 export function NextResetCard({ status, stats }: { status: Status | null; stats: Stats | null }) {
   const { t } = useTranslation();
-  const lang = useLang();
-  const now = useNow();
-  const avgMs = (stats?.avg_interval_hours ?? 0) * 3600e3;
-  const lastMs = Date.parse(stats?.last_hit_at || "");
-  const hasCycle = !!stats?.total_hits && avgMs > 0 && Number.isFinite(lastMs);
-  const expectedMs = lastMs + avgMs;
-  const overdue = hasCycle && now > expectedMs;
-  const dateLabel = (ms: number) => new Intl.DateTimeFormat(lang === "zh" ? "zh-CN" : "en-US", {
-    month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false,
-  }).format(new Date(ms));
-
-  return (
-    <section className="reset-summary" aria-label={t("nextResetTitle")}>
-      <div className="aside-heading"><h2>{t("navRhythm")}</h2>{status?.demo && <span className="badge-demo">{t("demoLabel")}</span>}</div>
-      {hasCycle ? (
-        <>
-          <div className="reset-expected" title={fmt(new Date(expectedMs).toISOString())}>{t("expectedAt", { time: dateLabel(expectedMs) })}</div>
-          <p className="reset-disclaimer">{t("predictionDisclaimer")}</p>
-          <div className={"reset-countdown" + (overdue ? " over" : "")}>
-            <span>{fmtCountdown(overdue ? now - expectedMs : expectedMs - now, lang)}</span>
-            <span className="reset-count-label">{t(overdue ? "rhythmCdOver" : "rhythmCdWait")}</span>
-          </div>
-          {overdue && <p className="reset-overdue">{t("rhythmStateOver")}</p>}
-        </>
-      ) : <p className="reset-no-data">{t("rhythmNoForecast")}</p>}
-      <dl className="reset-facts">
-        <div><dt>{t("rhythmLast")}</dt><dd title={fmt(stats?.last_hit_at)}>{Number.isFinite(lastMs) ? dateLabel(lastMs) : "—"}</dd></div>
-        <div><dt>{t("rhythmAvg")}</dt><dd title={t("rhythmAvgTip")}>{stats?.avg_interval_hours != null ? fmtHours(stats.avg_interval_hours, lang) : "—"}</dd></div>
-      </dl>
-    </section>
-  );
+  return <section className="reset-summary" aria-label={t("nextResetTitle")}>
+    <div className="aside-heading"><h2>{t("navRhythm")}</h2>{status?.demo && <span className="badge-demo">{t("demoLabel")}</span>}</div>
+    <ForecastSummary forecast={stats?.forecast} />
+  </section>;
 }
 
 /* ---------- 页末统计条：与公告阅读区分离，避免数字争夺首屏 ---------- */
@@ -162,7 +114,7 @@ function DayDetail({ day, onClose }: { day: string; onClose: () => void }) {
       <div className="dd-head">
         <span>{rows == null ? head : t(rows.length ? "heatTip" : "heatTipZero", { day: head, n: rows.length })}</span>
         <button className="dd-close" type="button" aria-label={t("ddClose")} onClick={onClose}>
-          ×
+          <span aria-hidden="true" dangerouslySetInnerHTML={{ __html: SVG_CLOSE }} />
         </button>
       </div>
       {rows == null ? (
@@ -384,6 +336,7 @@ export function SourcesCol({ status }: { status: Status | null }) {
         {ai?.enabled ? <>
           <div className="srow"><span className="sname">{t("aiProvider")}</span><span className="svalue">{ai.provider} · {ai.model}</span></div>
           <div className="srow"><span className="sname">{t("aiReviewLabel")}</span><span className={"state-label " + (ai.review ? "ok" : "idle")}><span className={"dot " + (ai.review ? "ok" : "idle")} />{t(ai.review ? "stEnabled" : "stDisabled")}</span></div>
+          <p className="section-note">{t(ai.review ? "aiDetectionHint" : "aiReviewOff")}</p>
           <p className="section-note">{t("aiTranslateOn")}</p>
         </> : <p className="section-note ai-unconfigured"><span className="dot warn" />{t("aiOff")}</p>}
       </section>

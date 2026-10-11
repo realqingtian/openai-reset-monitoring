@@ -5,10 +5,12 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { j } from "../../api/client";
 import type { Poll, Stats, Status, Tweet } from "../../api/types";
-import { ago, fmt, fmtLocal, fmtUTC, hl, localOffsetLabel, safeUrl } from "../../utils/format";
+import { ago, fmt, hl, localOffsetLabel, safeUrl } from "../../utils/format";
 import { useLang } from "../../i18n/useLang";
+import { ForecastSummary } from "../forecast/ForecastSummary";
 import type { Lang } from "../../utils/format";
 import CountUp from "../../components/reactbits/CountUp";
+import { SVG_CLOSE } from "../../components/icons";
 
 export function LiveStats({ status }: { status: Status | null }) {
   const { t } = useTranslation();
@@ -87,7 +89,7 @@ function DayDetail({ day, id, onClose }: { day: string; id: string; onClose: () 
     <div className="day-detail" id={id} role="region" aria-label={t("heatDayDetails", { day })} aria-busy={rows == null && !failed}>
       <div className="dd-head">
         <span>{rows == null ? head : t(rows.length ? "heatTip" : "heatTipZero", { day: head, n: rows.length })}</span>
-        <button className="dd-close" type="button" aria-label={t("ddClose")} onClick={onClose}>×</button>
+        <button className="dd-close" type="button" aria-label={t("ddClose")} onClick={onClose}><span aria-hidden="true" dangerouslySetInnerHTML={{ __html: SVG_CLOSE }} /></button>
       </div>
       {failed ? <div className="dd-empty section-load-error" role="alert"><span>{t("heatLoadFail")}</span><button type="button" onClick={() => { setFailed(false); setRetry((n) => n + 1); }}>{t("postsRetry")}</button></div>
         : rows == null ? <div className="dd-empty" role="status">{t("heatLoading")}</div>
@@ -194,28 +196,9 @@ const RhythmHeatmap = memo(function RhythmHeatmap({ daily, selDay, onSelect, det
   );
 });
 
-/* 逐秒刷新的本地时钟：倒计时与进度条的「活着」来源（数据仍 60s 拉新，走动不依赖轮询） */
-function useNow(intervalMs = 1000): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), intervalMs);
-    return () => clearInterval(id);
-  }, [intervalMs]);
-  return now;
-}
-
-/* 时长压缩：>24h 为「N天 HH:MM:SS」，否则「HH:MM:SS」 */
-function fmtCountdown(ms: number, lang: Lang): string {
-  const s = Math.max(0, Math.floor(ms / 1000));
-  const d = Math.floor(s / 86400);
-  const clock = `${pad2(Math.floor((s % 86400) / 3600))}:${pad2(Math.floor((s % 3600) / 60))}:${pad2(s % 60)}`;
-  return d > 0 ? (lang === "zh" ? `${d}天 ${clock}` : `${d}d ${clock}`) : clock;
-}
-
 export function RhythmCard({ stats }: { stats: Stats | null }) {
   const { t } = useTranslation();
   const lang = useLang();
-  const now = useNow();
   const [selDay, setSelDay] = useState<string | null>(null);
   const detailId = useId();
   const selectDay = useCallback((day: string) => setSelDay((old) => old === day ? null : day), []);
@@ -235,77 +218,16 @@ export function RhythmCard({ stats }: { stats: Stats | null }) {
     if (h >= 48) return lang === "zh" ? (h / 24).toFixed(1) + " 天" : (h / 24).toFixed(1) + " d";
     return lang === "zh" ? Math.round(h) + " 小时" : Math.round(h) + " h";
   };
-  // 节奏状态机：距上次命中的进度 vs 平均间隔；越过预计点即「已逾期」态（琥珀），等待态每秒走动
-  const avgMs = (stats.avg_interval_hours ?? 0) * 3600e3;
-  const lastMs = Date.parse(stats.last_hit_at || "");
-  const hasCycle = stats.avg_interval_hours != null && avgMs > 0 && Number.isFinite(lastMs);
-  const predictedMs = Date.parse(stats.next_expected_at || "");
-  const expectedMs = Number.isFinite(predictedMs) ? predictedMs : lastMs + avgMs;
-  const overdue = hasCycle && now > expectedMs;
-  const pct = hasCycle ? Math.min(100, ((now - lastMs) / avgMs) * 100) : 0;
   return (
     <>
-      <div className="rhythm-head"><h2 className="sub-title">{t("rhythmTitle")}</h2>
-        {hasCycle && (
-          <span className={"state-pill " + (overdue ? "over" : "wait")}>
-            <span className="dot" aria-hidden />
-            {overdue ? t("rhythmStateOver") : t("rhythmStateWait")}
-          </span>
-        )}
-        <p className="rhythm-reference">{t("predictionDisclaimer")}</p>
-      </div>
+      <div className="rhythm-head"><h2 className="sub-title">{t("rhythmTitle")}</h2></div>
       <div className="rhythm-layout"><div className="rhythm-metrics">
-      {hasCycle && (<div
-            className={"count-line" + (overdue ? " over" : "")}
-            title={`UTC+0 ${fmtUTC(new Date(expectedMs).toISOString())} · ${localOffsetLabel()} ${fmtLocal(new Date(expectedMs).toISOString())}`}
-          >
-            <span className="r-key">{overdue ? t("rhythmCdOver") : t("rhythmCdWait")}</span>
-            <span className="cd">{fmtCountdown(overdue ? now - expectedMs : expectedMs - now, lang)}</span>
-            {overdue && (
-              <span className="cd-sub">{t("rhythmOverPast", { t: fmtLocal(new Date(expectedMs).toISOString()).slice(0, 16) })}</span>
-            )}
-          </div>)}
-      <div className="rhythm-rows">
-        <div className="r-row" title={stats.last_hit_at || ""}>
-          <span className="r-key">{t("rhythmLast")}</span>
-          <span className="r-val">{ago(stats.last_hit_at, lang)}</span>
+        <ForecastSummary forecast={stats.forecast} />
+        <div className="rhythm-rows">
+          <div className="r-row" title={stats.forecast?.last_reset_at || ""}><span className="r-key">{t("forecastLastCompleted")}</span><span className="r-val">{ago(stats.forecast?.last_reset_at, lang)}</span></div>
+          <div className="r-row" title={t("rhythmAvgTip")}><span className="r-key">{t("forecastMedian")}</span><span className="r-val">{stats.forecast?.median_interval_hours != null ? fmtHours(stats.forecast.median_interval_hours) : "—"}</span></div>
+          <div className="r-row" title={t("rhythmTotal", { n: stats.total_hits })}><span className="r-key">{t("rhythmHits30")}</span><span className="r-val">{String(stats.hits_30d)}</span></div>
         </div>
-        <div className="r-row" title={t("rhythmAvgTip")}>
-          <span className="r-key">{t("rhythmAvg")}</span>
-          <span className="r-val">{stats.avg_interval_hours != null ? fmtHours(stats.avg_interval_hours) : "—"}</span>
-        </div>
-        <div className="r-row" title={t("rhythmTotal", { n: stats.total_hits })}>
-          <span className="r-key">{t("rhythmHits30")}</span>
-          <span className="r-val">{String(stats.hits_30d)}</span>
-        </div>
-      </div>
-      {hasCycle ? (
-        <>
-          <div
-            className={"rhythm-bar" + (overdue ? " over" : "")}
-            role="progressbar"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={Math.round(pct)}
-            title={t("rhythmNextTip")}
-          >
-            <div className="bar-track">
-              <div className="bar-fill" style={{ width: pct.toFixed(1) + "%" }} />
-            </div>
-            <div className="bar-meta">
-              <span>{overdue ? t("rhythmBeyond") : t("rhythmCycle")}</span>
-              <span className="pct">
-                {overdue ? t("rhythmTimes", { n: ((now - lastMs) / avgMs).toFixed(1) }) : Math.round(pct) + "%"}
-              </span>
-            </div>
-          </div>
-
-        </>
-      ) : (
-        <div className="rhythm-next">
-          <span className="r-key">{t("rhythmNoForecast")}</span>
-        </div>
-      )}
       </div><div className="rhythm-activity"><h3>{t("heatTitle")}</h3><RhythmHeatmap daily={stats.daily_hits || []} selDay={selDay} onSelect={selectDay} detailId={detailId} /></div></div>
       {selDay && <DayDetail key={selDay} day={selDay} id={detailId} onClose={closeDay} />}
     </>

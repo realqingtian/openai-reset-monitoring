@@ -72,12 +72,30 @@ export interface Status {
   rules: RuleInfo[];
 }
 
+export interface ResetForecast {
+  status: "unavailable" | "announced" | "estimated" | "expired";
+  method: string;
+  confidence: string;
+  window_start?: string | null;
+  window_end?: string | null;
+  expected_at?: string | null;
+  reason_code: string;
+  sample_events: number;
+  sample_posts: number;
+  sample_since?: string | null;
+  sample_until?: string | null;
+  median_interval_hours?: number | null;
+  last_reset_at?: string | null;
+  evidence: { id: string; text: string; url: string; published_at: string; analysis?: string | null }[];
+}
+
 export interface Stats {
   total_hits: number;
   hits_30d: number;
   avg_interval_hours?: number | null;
   last_hit_at?: string | null;
   next_expected_at?: string | null;
+  forecast?: ResetForecast | null;
   since?: string | null;
   recent_hits: string[];
   daily_hits: { day: string; count: number }[];
@@ -89,7 +107,8 @@ export interface CalendarEvent {
   created_at: string;
   text: string;
   url: string;
-  kind: "quota" | "card";
+  kind: "quota" | "card" | "other";
+  phase?: "completed" | "scheduled" | "unknown";
 }
 
 export interface CalendarPrediction {
@@ -101,6 +120,7 @@ export interface CalendarPrediction {
 export interface CalendarData {
   events: CalendarEvent[];
   prediction?: CalendarPrediction | null;
+  forecast?: ResetForecast | null;
 }
 
 export interface Poll {

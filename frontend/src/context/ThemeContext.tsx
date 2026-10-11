@@ -15,15 +15,19 @@ function resolve(mode: ThemeMode): "light" | "dark" {
 function apply(mode: ThemeMode): "light" | "dark" {
   const resolved = resolve(mode);
   document.documentElement.dataset.theme = resolved;
+  syncFavicon(resolved);
   return resolved;
 }
 
-/* 深浅主题各自配套 favicon（浅色用深色图形版），跟随主题同步 */
+/* 图标带独立底色：网页主题与浏览器标签栏主题不一致时仍有足够对比度。 */
 function syncFavicon(resolved: "light" | "dark") {
   const svg = document.getElementById("favSvg") as HTMLLinkElement | null;
   const png = document.getElementById("favPng") as HTMLLinkElement | null;
-  if (svg) svg.href = resolved === "dark" ? "/assets/favicon-dark.svg" : "/assets/favicon.svg";
-  if (png) png.href = resolved === "dark" ? "/assets/favicon-dark-32x32.png" : "/assets/favicon-32x32.png";
+  const suffix = resolved === "dark" ? "dark" : "light";
+  if (svg) svg.href = `/assets/brand-${suffix}.svg`;
+  if (png) png.href = `/assets/brand-${suffix}-32.png`;
+  const touch = document.getElementById("favTouch") as HTMLLinkElement | null;
+  if (touch) touch.href = `/assets/brand-${suffix}-180.png`;
 }
 
 interface ThemeCtx {
@@ -45,14 +49,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
-    syncFavicon(apply(mode));
+    apply(mode);
     try {
       localStorage.setItem(THEME_KEY, mode);
     } catch {
       /* ignore */
     }
     if (mode !== "system") return;
-    const onChange = () => syncFavicon(apply("system"));
+    const onChange = () => { apply("system"); };
     mqLight.addEventListener?.("change", onChange);
     return () => mqLight.removeEventListener?.("change", onChange);
   }, [mode]);
