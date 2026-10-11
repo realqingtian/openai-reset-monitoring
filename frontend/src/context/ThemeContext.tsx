@@ -19,15 +19,15 @@ function apply(mode: ThemeMode): "light" | "dark" {
   return resolved;
 }
 
-/* 图标带独立底色：网页主题与浏览器标签栏主题不一致时仍有足够对比度。 */
+/* 透明图标与页头标志一致：浅色纯黑、深色纯白，切换时同步更新。 */
 function syncFavicon(resolved: "light" | "dark") {
   const svg = document.getElementById("favSvg") as HTMLLinkElement | null;
   const png = document.getElementById("favPng") as HTMLLinkElement | null;
   const suffix = resolved === "dark" ? "dark" : "light";
-  if (svg) svg.href = `/assets/brand-${suffix}.svg`;
-  if (png) png.href = `/assets/brand-${suffix}-32.png`;
+  if (svg) svg.href = `/assets/brand-${suffix}.svg?v=2`;
+  if (png) png.href = `/assets/brand-${suffix}-32.png?v=2`;
   const touch = document.getElementById("favTouch") as HTMLLinkElement | null;
-  if (touch) touch.href = `/assets/brand-${suffix}-180.png`;
+  if (touch) touch.href = `/assets/brand-${suffix}-180.png?v=2`;
 }
 
 interface ThemeCtx {
