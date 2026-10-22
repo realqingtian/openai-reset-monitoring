@@ -1,0 +1,30 @@
+{
+  "demo": false,
+  "sources": [
+    {
+      "name": "twitterapi_io",
+      "enabled": false,
+      "configured": false,
+      "known": false,
+      "healthy": false
+    },
+    {
+      "name": "rsshub",
+      "enabled": true,
+      "configured": true,
+      "known": true,
+      "healthy": true
+    }
+  ],
+  "recent_count": 4,
+  "recent_sources": [
+    "rsshub"
+  ],
+  "has_demo_ids": false,
+  "database": "isolated temporary preview",
+  "env_modified": false,
+  "frontend_lint": "passed",
+  "frontend_build": "passed",
+  "backend_checks": "passed",
+  "console_errors": 0
+}
