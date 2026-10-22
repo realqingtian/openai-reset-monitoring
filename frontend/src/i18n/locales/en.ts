@@ -140,7 +140,7 @@ const en: Record<string, string> = {
   navLanguage: "Language",
   navPreferences: "Preferences & account",
   langZh: "中文", langEn: "English",
-  langAutoMenu: "Auto (follow browser)", langAutoShort: "Auto", langSwitch: "Switch language",
+  langAutoMenu: "Auto", langAutoShort: "Auto", langSwitch: "Switch language",
   secFeed: "Posts in the last 24 hours",
   srcDemo: "Demo source", stNoKey: "No API key", stWait: "Pending first check",
   stOk: "OK · {{ago}}", stFail: "Failed ×{{n}}",

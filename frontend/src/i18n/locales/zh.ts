@@ -140,7 +140,7 @@ const zh: Record<string, string> = {
   navLanguage: "语言",
   navPreferences: "显示与账户",
   langZh: "中文", langEn: "English",
-  langAutoMenu: "自动（跟随浏览器）", langAutoShort: "自动", langSwitch: "切换语言",
+  langAutoMenu: "自动", langAutoShort: "自动", langSwitch: "切换语言",
   secFeed: "最近 24 小时的帖子",
   srcDemo: "演示数据源", stNoKey: "缺凭证", stWait: "待首次检查",
   stOk: "正常 · {{ago}}", stFail: "失败 ×{{n}}",

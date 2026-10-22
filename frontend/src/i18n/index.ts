@@ -9,6 +9,14 @@ import { initReactI18next } from "react-i18next";
 import en from "./locales/en";
 import zh from "./locales/zh";
 
+/* <html lang> 跟随界面语言：读屏与浏览器自动翻译靠它判断页面语言，
+   否则切到英文后文档语言仍是 zh-CN。 */
+function syncHtmlLang(lng: string | undefined) {
+  document.documentElement.lang = lng?.toLowerCase().startsWith("zh") ? "zh-CN" : "en";
+}
+
+i18n.on("languageChanged", syncHtmlLang);
+
 void i18n
   .use(LanguageDetector)
   .use(initReactI18next)
@@ -26,6 +34,7 @@ void i18n
       caches: ["localStorage"],
     },
     interpolation: { escapeValue: false },
-  });
+  })
+  .then(() => syncHtmlLang(i18n.resolvedLanguage));
 
 export default i18n;
