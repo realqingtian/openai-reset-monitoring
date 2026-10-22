@@ -10,7 +10,8 @@ ENV NPM_CONFIG_REGISTRY=https://registry.npmmirror.com
 
 # 先只拷依赖清单充分利用层缓存
 COPY package.json bun.lock ./
-RUN bun install --frozen
+# 用 --frozen-lockfile 而非 --frozen 短别名：镜像源里的 bun:1 版本偏旧，不认识 --frozen
+RUN bun install --frozen-lockfile
 
 COPY . .
 RUN bun run build
