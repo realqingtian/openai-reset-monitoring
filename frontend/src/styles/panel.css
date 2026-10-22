@@ -1349,3 +1349,12 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 2px s
 .forecast-evidence a { color: var(--hit-accent); }
 .ce-state.unknown { color: var(--muted); border-color: var(--line); background: var(--btn2-bg); }
 .cal-event.unknown { background: var(--btn2-bg); border-left: 3px solid var(--muted); color: var(--muted); }
+
+/* 移动端点击可靠性：点按交给浏览器手势直接处理，避免双击缩放判定/长按选择吞掉 click。
+   导航的偏好入口收在账户菜单里，头像触发器与菜单行是手机上的主要点按目标。 */
+.nav-avatar-trigger, .nav-check, .nav-menu-row, .btn {
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
