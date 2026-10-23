@@ -41,6 +41,9 @@ export function Nav({ status, onCheckDone, refreshing }: NavProps) {
   const [updated, setUpdated] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [submenu, setSubmenu] = useState<Submenu>(null);
+  // 触屏上 focus/blur 语义不可靠（iOS 点按不聚焦按钮、点空白焦点落 body 且 relatedTarget 为空），
+  // 记录最后输入方式：触屏交互跳过程序化 focus，避免滚动跳位与 blur 误收口。
+  const lastPointerType = useRef("");
   const accountBox = useRef<HTMLDivElement>(null);
   const checkTrigger = useRef<HTMLButtonElement>(null);
   const restoreCheckFocus = useRef(false);
@@ -52,17 +55,35 @@ export function Nav({ status, onCheckDone, refreshing }: NavProps) {
   useEffect(() => () => { if (updatedTimer.current) clearTimeout(updatedTimer.current); }, []);
 
   useEffect(() => {
+    const record = (event: Event) => {
+      const pointerType = (event as PointerEvent).pointerType;
+      lastPointerType.current = pointerType || (event.type === "touchstart" ? "touch" : "");
+    };
+    document.addEventListener("pointerdown", record, { passive: true });
+    document.addEventListener("touchstart", record, { passive: true });
+    document.addEventListener("keydown", record, { passive: true });
+    return () => {
+      document.removeEventListener("pointerdown", record);
+      document.removeEventListener("touchstart", record);
+      document.removeEventListener("keydown", record);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!checking && restoreCheckFocus.current) {
       restoreCheckFocus.current = false;
-      // 登录弹窗关闭时检查按钮仍禁用，等 React 恢复按钮后再归还焦点。
-      if (document.activeElement === document.body) checkTrigger.current?.focus();
+      // 登录弹窗关闭时检查按钮仍禁用，等 React 恢复按钮后再归还焦点；触屏归还焦点会引发滚动跳位。
+      if (lastPointerType.current !== "touch" && document.activeElement === document.body) checkTrigger.current?.focus();
     }
   }, [checking]);
 
   useEffect(() => {
     if (!menuOpen) return;
-    accountBox.current?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus();
-    const onOutside = (event: PointerEvent) => {
+    if (lastPointerType.current !== "touch") {
+      accountBox.current?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus();
+    }
+    // pointerdown 与 touchstart 双监听：不支持 PointerEvent 的老 WebView 也能点外部收口。
+    const onOutside = (event: Event) => {
       // 使用事件路径，避免选项切换时 DOM 卸载被误判为点击外部。
       if (!event.composedPath().includes(accountBox.current as EventTarget)) {
         setMenuOpen(false);
@@ -70,21 +91,29 @@ export function Nav({ status, onCheckDone, refreshing }: NavProps) {
       }
     };
     document.addEventListener("pointerdown", onOutside);
-    return () => document.removeEventListener("pointerdown", onOutside);
+    document.addEventListener("touchstart", onOutside);
+    return () => {
+      document.removeEventListener("pointerdown", onOutside);
+      document.removeEventListener("touchstart", onOutside);
+    };
   }, [menuOpen]);
 
   useEffect(() => {
-    if (submenu) accountBox.current?.querySelector<HTMLButtonElement>('[aria-checked="true"]')?.focus();
+    if (submenu && lastPointerType.current !== "touch") {
+      accountBox.current?.querySelector<HTMLButtonElement>('[aria-checked="true"]')?.focus();
+    }
   }, [submenu]);
 
   function closeMenu(restoreFocus = true) {
     setMenuOpen(false);
     setSubmenu(null);
-    if (restoreFocus) accountTrigger.current?.focus();
+    if (restoreFocus && lastPointerType.current !== "touch") accountTrigger.current?.focus();
   }
 
   function closeSubmenu() {
-    (submenu === "appearance" ? appearanceTrigger : languageTrigger).current?.focus();
+    if (lastPointerType.current !== "touch") {
+      (submenu === "appearance" ? appearanceTrigger : languageTrigger).current?.focus();
+    }
     setSubmenu(null);
   }
 
@@ -166,7 +195,10 @@ export function Nav({ status, onCheckDone, refreshing }: NavProps) {
           </button>
           <span className="sr-only" role="status">{checking || updated ? checkLabel : ""}</span>
           <div className="nav-account-box" ref={accountBox} onKeyDown={navigateMenu} onBlur={(event) => {
-            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) { setMenuOpen(false); setSubmenu(null); }
+            // relatedTarget 为空常见于触屏点按（焦点落 body），不是可靠的框外转移；
+            // 此时保留菜单，外部点按已由 pointerdown/touchstart 监听兜底收口。
+            const next = event.relatedTarget as Node | null;
+            if (next && !event.currentTarget.contains(next)) { setMenuOpen(false); setSubmenu(null); }
           }}>
             <button ref={accountTrigger} className="nav-avatar-trigger" type="button" aria-label={t("navAccountMenu")} title={t("navAccountMenu")} aria-haspopup="menu" aria-expanded={menuOpen} aria-controls="nav-account-menu" onClick={() => { setMenuOpen((open) => !open); setSubmenu(null); }}>
               <span className="nav-avatar" aria-hidden>{avatar || <StaticIcon svg={auth.required ? NAV_USER_ROUND : NAV_MONITOR} />}</span>
