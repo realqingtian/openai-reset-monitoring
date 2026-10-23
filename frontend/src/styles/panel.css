@@ -415,6 +415,8 @@ html.theming .nav-inner, html.theming .toast {
 }
 .auth-input:focus { border-color: var(--hit-accent); background: transparent; }
 .auth-input + .auth-input { margin-top: 10px; }
+/* iOS 聚焦字号 <16px 的输入框会整页自动放大且不自动恢复，触屏设备统一提到 16px */
+@media (pointer: coarse) { .auth-input { font-size: 16px; } }
 .auth-err { margin-top: 10px; font-size: 12px; color: var(--red); }
 .auth-user { margin: 4px 0 2px; font-size: 13px; color: var(--muted); }
 .auth-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
@@ -922,7 +924,8 @@ mark {
 .feed-more:hover { background: var(--btn2-hover); }
 .feed-page-error { color: var(--red); }
 .feed-sentinel { height: 1px; }
-.auth-dialog { width: min(400px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; margin: auto; padding: 28px; border: 1px solid var(--line-strong); border-radius: 26px; color: var(--text); background: var(--core-grad); box-shadow: var(--card-shadow); }
+/* max-height 先给 vh 再给 dvh：不认 dvh 的老 WebView 会整条丢弃声明，没有高度上限就没法滚动到底部按钮 */
+.auth-dialog { width: min(400px, calc(100vw - 32px)); max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); overflow-y: auto; margin: auto; padding: 28px; border: 1px solid var(--line-strong); border-radius: 26px; color: var(--text); background: var(--core-grad); box-shadow: var(--card-shadow); }
 .auth-dialog::backdrop { background: color-mix(in srgb, var(--bg) 72%, transparent); backdrop-filter: blur(8px); }
 .auth-dialog h2 { margin: 0 0 12px; font-size: 22px; }
 .auth-label { display: block; margin: 16px 0 6px; font-size: 12px; color: var(--muted); }
@@ -1271,7 +1274,7 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 2px s
 .nav-avatar { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0; background: var(--seg-active); color: var(--text); font-size: 18px; font-weight: 500; }
 .nav-avatar-trigger:hover .nav-avatar, .nav-avatar-trigger[aria-expanded="true"] .nav-avatar { background: var(--line-strong); }
 .nav-account-menu, .nav-submenu { padding: 6px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--core-grad); box-shadow: var(--nav-shadow); }
-.nav-account-menu { position: absolute; right: 0; top: calc(100% + 12px); width: 300px; max-width: calc(100vw - 32px); max-height: calc(100dvh - 92px); overflow: visible; }
+.nav-account-menu { position: absolute; right: 0; top: calc(100% + 12px); width: 300px; max-width: calc(100vw - 32px); max-height: calc(100vh - 92px); max-height: calc(100dvh - 92px); overflow: visible; }
 .nav-menu-identity { display: flex; align-items: center; gap: 12px; padding: 10px 10px 16px; }
 .nav-menu-identity .nav-avatar { width: 42px; height: 42px; }
 .nav-menu-identity > div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
@@ -1351,9 +1354,9 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 2px s
 .cal-event.unknown { background: var(--btn2-bg); border-left: 3px solid var(--muted); color: var(--muted); }
 
 /* 移动端点击可靠性：点按交给浏览器手势直接处理，避免双击缩放判定/长按选择吞掉 click。
-   导航的偏好入口收在账户菜单里，头像触发器与菜单行是手机上的主要点按目标。 */
-.nav-avatar-trigger, .nav-check, .nav-menu-row, .btn {
-  touch-action: manipulation;
+   全局对可点按元素兜底（导航、日历、帖子流、表单按钮全覆盖），链接只关双击缩放不影响文本选择。 */
+a, button, summary { touch-action: manipulation; }
+button {
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
