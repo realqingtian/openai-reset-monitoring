@@ -117,23 +117,23 @@ function CalendarBody({ tick, onLoadingChange, posts, heatmap }: CalendarProps) 
     setSel(today);
     setDetailsOpen(false);
   }
+  const lastResetSummary = <aside className="latest-completion" aria-label={t("forecastLastCompleted")} aria-description={t("forecastLastCompletedHint")}>
+    <span className="ui-icon" aria-hidden="true" dangerouslySetInnerHTML={{ __html: SVG_CLOCK }} />
+    <div><span>{t("forecastLastCompleted")}</span>
+      {hasLastReset ? <>
+        <strong><time dateTime={lastReset}>{time.stamp(lastReset).slice(0, 16)}</time></strong>
+        <div className="latest-completion-meta"><span className="latest-completion-age">{ago(lastReset, lang)}</span><span className="latest-completion-separator" aria-hidden="true">·</span><span className="latest-completion-zone">{time.label}</span></div>
+        <span className="latest-completion-note">{t("forecastLastCompletedHint")}</span>
+      </> : <span className="latest-completion-empty">{t(!data && loading ? "monitorLoading" : !data ? "calLoadFail" : "noCompletedAnnouncement")}</span>}
+    </div>
+  </aside>;
   return <div className="reset-workspace">
       <section className="forecast-strip glass-surface" aria-label={t("forecastPanelTitle")} aria-busy={!data && loading}>
         <span className="forecast-symbol" aria-hidden="true"><img src="/assets/calendar-days.svg" width={30} height={30} alt="" /></span>
         <div className="forecast-strip-content">
           <h2>{t("forecastPanelTitle")}</h2>
-          {data ? <ForecastSummary forecast={forecast} compact /> : <p className="forecast-loading" role="status">{t(loading ? "monitorLoading" : "calLoadFail")}</p>}
+          {data ? <ForecastSummary forecast={forecast} compact lastReset={lastResetSummary} /> : <><p className="forecast-loading" role="status">{t(loading ? "monitorLoading" : "calLoadFail")}</p>{lastResetSummary}</>}
         </div>
-        <aside className="latest-completion" aria-label={t("forecastLastCompleted")}>
-          <span className="ui-icon" aria-hidden="true" dangerouslySetInnerHTML={{ __html: SVG_CLOCK }} />
-          <div><span>{t("forecastLastCompleted")}</span>
-            {hasLastReset ? <>
-              <strong><time dateTime={lastReset}>{time.stamp(lastReset).slice(0, 16)}</time></strong>
-              <span className="latest-completion-meta">{ago(lastReset, lang)} · {time.label}</span>
-              <span className="latest-completion-note">{t("forecastLastCompletedHint")}</span>
-            </> : <span className="latest-completion-empty">{t(!data && loading ? "monitorLoading" : !data ? "calLoadFail" : "noCompletedAnnouncement")}</span>}
-          </div>
-        </aside>
       </section>
       <section className="calendar-month glass-surface" aria-label={t("calTitle")} aria-busy={loading}>
         <span className="cal-load-indicator" aria-hidden="true" />

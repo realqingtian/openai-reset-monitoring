@@ -18,7 +18,7 @@ describe("next reset information hierarchy", () => {
   test("untimed preview keeps timing uncertain with evidence collapsed by default", () => {
     const html = render({ ...base, pending_preview: preview });
     expect(html).toContain("下次重置时间待定");
-    expect(html).toContain("@fixture 提到帖文发布当天重置，具体时间与时区尚未明确。");
+    expect(html).toContain("来源提到发帖当天重置，具体时间与时区未明确。");
     expect(html).toContain("But today is a reset.");
     expect(html).not.toContain("暂无可靠预测");
     expect(html).not.toContain('class="forecast-outlook forecast-window"');
