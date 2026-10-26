@@ -18,6 +18,8 @@ export interface Tweet {
   /* 账号昵称/头像（按账号缓存，未命中为空）：头像走 safeUrl，缺失时前端字母头像兜底 */
   author_name?: string | null;
   author_avatar?: string | null;
+  kind?: EventKind | null;
+  phase?: EventPhase | null;
 }
 
 export interface SourceState {
@@ -86,12 +88,23 @@ export interface ResetForecast {
   sample_until?: string | null;
   median_interval_hours?: number | null;
   last_reset_at?: string | null;
+  analyzed_at?: string | null;
+  pending_preview?: {
+    id: string;
+    account: string;
+    text: string;
+    url: string;
+    published_at: string;
+    timing: "same_day" | "unspecified";
+  } | null;
   evidence: { id: string; text: string; url: string; published_at: string; analysis?: string | null }[];
 }
 
 export interface Stats {
   total_hits: number;
   hits_30d: number;
+  completed_events_30d: number;
+  card_events_30d: number;
   avg_interval_hours?: number | null;
   last_hit_at?: string | null;
   next_expected_at?: string | null;
@@ -109,6 +122,8 @@ export interface CalendarEvent {
   url: string;
   kind: "quota" | "card" | "other";
   phase?: "completed" | "scheduled" | "unknown";
+  event_id?: string | null;
+  evidence?: Tweet[];
 }
 
 export interface CalendarPrediction {
@@ -138,4 +153,49 @@ export interface LoginOut {
   access_token: string;
   token_type: string;
   expires_at: string;
+}
+
+export interface MonitorHealth {
+  state: "demo" | "healthy" | "degraded" | "offline" | "stale" | "waiting" | "unconfigured";
+  generated_at: string;
+  last_attempt_at?: string | null;
+  last_success_at?: string | null;
+  stale_after_seconds: number;
+  enabled_sources: number;
+  healthy_sources: number;
+  channels: NotifierState[];
+}
+
+export interface MonitorAdmin {
+  sources: SourceState[];
+  channels: (NotifierState & { last_attempt_at?: string | null; last_result?: boolean | null; pending_retries: number })[];
+  polls: Poll[];
+  deliveries: { id: number; ts?: string | null; tweet_id?: string | null; channel: string; ok: boolean; error?: string | null }[];
+}
+
+export type EventKind = "quota" | "card" | "other";
+export type EventPhase = "completed" | "scheduled" | "unknown";
+export interface EventFilter {
+  kind: EventKind | "";
+  phase: EventPhase | "";
+  account: string;
+}
+export interface ResetEvent {
+  id: string;
+  account: string;
+  kind: EventKind;
+  phase: EventPhase;
+  announced_at: string;
+  updated_at: string;
+  completed_at?: string | null;
+  window_start?: string | null;
+  window_end?: string | null;
+  evidence: Tweet[];
+}
+export interface EventPage {
+  items: ResetEvent[];
+  total: number;
+  next_cursor?: string | null;
+  completed_30d: number;
+  cards_30d: number;
 }

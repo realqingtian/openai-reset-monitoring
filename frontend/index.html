@@ -2,22 +2,29 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#edf2f7" id="browserTheme">
 <title>Codex 重置监控 · @thsottiaux</title>
-<link rel="icon" id="favSvg" href="/assets/brand-light.svg?v=2" type="image/svg+xml">
-<link rel="icon" id="favPng" href="/assets/brand-light-32.png?v=2" type="image/png" sizes="32x32">
-<link rel="apple-touch-icon" id="favTouch" href="/assets/brand-light-180.png?v=2">
+<!-- 黑白图标自带中性底色，兼顾浏览器工具栏与页面主题不一致的情况。新文件名避免沿用蓝底缓存。 -->
+<link rel="icon" href="/assets/openai-favicon.ico?v=4" type="image/x-icon" sizes="16x16 32x32 48x48">
+<link rel="icon" href="/assets/openai-favicon-32.png?v=4" type="image/png" sizes="32x32">
+<link rel="icon" href="/assets/openai-favicon-48.png?v=4" type="image/png" sizes="48x48">
+<link rel="icon" href="/assets/openai-favicon.svg?v=4" type="image/svg+xml" sizes="any">
+<link rel="apple-touch-icon" href="/assets/openai-app-icon-180.png?v=4" sizes="180x180">
+<link rel="manifest" href="/assets/site.webmanifest?v=4">
 <script>
 /* 首屏前应用主题，避免闪烁 */
+var _m = "light";
 try {
   var _s = localStorage.getItem("crm-theme");
-  var _m = ["light", "dark", "system"].includes(_s) ? _s : "light";
-  var _t = _m === "system" ? (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark") : _m;
-  document.documentElement.dataset.theme = _t;
-  document.getElementById("favSvg").href = "/assets/brand-" + _t + ".svg?v=2";
-  document.getElementById("favPng").href = "/assets/brand-" + _t + "-32.png?v=2";
-  document.getElementById("favTouch").href = "/assets/brand-" + _t + "-180.png?v=2";
+  if (["light", "dark", "system"].includes(_s)) _m = _s;
 } catch (e) {}
+/* 存储被禁用时仍应用默认主题，避免先闪出深色首屏。 */
+var _t = _m === "system" ? (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark") : _m;
+document.documentElement.dataset.theme = _t;
+document.documentElement.style.colorScheme = _t;
+document.getElementById("browserTheme").content = _t === "dark" ? "#000000" : "#edf2f7";
 </script>
 </head>
 <body>

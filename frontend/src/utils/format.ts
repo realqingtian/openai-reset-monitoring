@@ -76,12 +76,12 @@ export function fmtLocal(iso: string | null | undefined): string {
 /* 时间统一输出 年-月-日 时:分:秒，本地时间附时区偏移标注（推送文案同款 UTC/UTC+8 风格） */
 export function fmt(iso: string | null | undefined): string {
   if (!iso) return "—";
-  const off = -new Date().getTimezoneOffset() / 60;
+  const off = -new Date(iso).getTimezoneOffset() / 60;
   return `${fmtLocal(iso)} UTC${off >= 0 ? "+" : ""}${off}`;
 }
 
-export function localOffsetLabel(): string {
-  const off = -new Date().getTimezoneOffset() / 60;
+export function localOffsetLabel(iso?: string): string {
+  const off = -(iso ? new Date(iso) : new Date()).getTimezoneOffset() / 60;
   return "UTC" + (off >= 0 ? "+" : "") + off;
 }
 

@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError, j } from "../../api/client";
-import type { Tweet } from "../../api/types";
+import type { EventFilter, Tweet } from "../../api/types";
+import { useTime } from "../../context/TimeContext";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import AnimatedContent from "../../components/reactbits/AnimatedContent";
@@ -122,6 +123,7 @@ export function TweetCard({ tw, mirror }: {
 }) {
   const { t } = useTranslation();
   const lang = useLang();
+  const time = useTime();
   const timeTip = useTipPos();
   return (
     <article className={"post-row tentry" + (tw.matched ? " hit" : "")}>
@@ -131,14 +133,16 @@ export function TweetCard({ tw, mirror }: {
           <span className="tname">{tw.author_name || "@" + tw.account}</span>
           {tw.author_name && <span className="thandle">@{tw.account}</span>}
           <button type="button" className="post-age" {...timeTip.bind}>{agoText(tw.created_at, lang)}</button>
-          <time className="post-date" dateTime={tw.created_at}>{fmtLocal(tw.created_at).slice(0, 16)}</time>
+          <time className="post-date" dateTime={tw.created_at}>{time.stamp(tw.created_at).slice(0, 16)}</time>
           {tw.is_reply && <span className="post-badge">{t("replyPill")}</span>}
+          {tw.matched && tw.kind && <span className="post-badge">{t("eventKind_" + tw.kind)}</span>}
+          {tw.matched && tw.phase && <span className="post-badge" title={t("eventPhaseHint_" + tw.phase)}>{t("eventPhase_" + tw.phase)}</span>}
           {tw.ai_verdict === "miss" && <span className="post-badge" title={t("aiMissTip", { reason: tw.ai_reason || "" })}>{t("aiMissPill")}</span>}
           {tw.notified && <span className="post-badge">{t("pushed")}</span>}
         </div>
         <TipBubble pos={timeTip.pos}>
           <div>UTC+0 {fmtUTC(tw.created_at)}</div>
-          <div>{localOffsetLabel()} {fmtLocal(tw.created_at)}</div>
+          <div>{localOffsetLabel(tw.created_at)} {fmtLocal(tw.created_at)}</div>
         </TipBubble>
         <PostContent tw={tw} />
       </div>
@@ -155,9 +159,10 @@ function mergeTweets(...pages: Tweet[][]): Tweet[] {
   return [...unique.values()].sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id));
 }
 
-export function Feed({ tweets, mirror, history = false, windowHours = 24, initialLoading = false, initialFailed = false, onRetry }: {
+export function Feed({ tweets, mirror, history = false, windowHours = 24, initialLoading = false, initialFailed = false, onRetry, filter }: {
   initialLoading?: boolean; initialFailed?: boolean; onRetry?: () => void;
   tweets: Tweet[]; mirror?: string | null; history?: boolean; windowHours?: number; featuredId?: string;
+  filter?: EventFilter;
 }) {
   const { t } = useTranslation();
   const [items, setItems] = useState(() => tweets.slice(0, PAGE_SIZE));
@@ -203,6 +208,9 @@ export function Feed({ tweets, mirror, history = false, windowHours = 24, initia
     setFailed(false);
     const query = new URLSearchParams({ limit: String(PAGE_SIZE), before: last.id });
     if (!history) query.set("hours", String(windowHours));
+    if (filter?.kind) query.set("kind", filter.kind);
+    if (filter?.phase) query.set("phase", filter.phase);
+    if (filter?.account) query.set("account", filter.account);
     try {
       const rows = await j<Tweet[]>(`/api/${history ? "hits" : "tweets"}?${query}`, { signal: controller.signal });
       if (controller.signal.aborted) return;
@@ -217,7 +225,7 @@ export function Feed({ tweets, mirror, history = false, windowHours = 24, initia
         setLoading(false);
       }
     }
-  }, [hasMore, history, items, windowHours]);
+  }, [hasMore, history, items, windowHours, filter]);
 
   useEffect(() => {
     if (!hasMore || loading || failed || !sentinelRef.current) return;

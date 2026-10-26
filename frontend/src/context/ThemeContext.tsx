@@ -1,12 +1,16 @@
 /* 主题：浅色 / 深色 / 跟随系统，偏好本地记忆（键与旧面板一致 crm-theme）。
    首屏防闪烁的内联脚本已在 index.html 里先行设置 data-theme，这里负责后续切换与跟随系统。 */
 
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 
 export type ThemeMode = "light" | "dark" | "system";
 
 const THEME_KEY = "crm-theme";
 const mqLight = matchMedia("(prefers-color-scheme: light)");
+const subscribeSystemTheme = (notify: () => void) => {
+  mqLight.addEventListener("change", notify);
+  return () => mqLight.removeEventListener("change", notify);
+};
 
 function resolve(mode: ThemeMode): "light" | "dark" {
   return mode === "system" ? (mqLight.matches ? "light" : "dark") : mode;
@@ -15,23 +19,20 @@ function resolve(mode: ThemeMode): "light" | "dark" {
 function apply(mode: ThemeMode): "light" | "dark" {
   const resolved = resolve(mode);
   document.documentElement.dataset.theme = resolved;
-  syncFavicon(resolved);
+  document.documentElement.style.colorScheme = resolved;
+  syncBrowserTheme();
   return resolved;
 }
 
-/* 透明图标与页头标志一致：浅色纯黑、深色纯白，切换时同步更新。 */
-function syncFavicon(resolved: "light" | "dark") {
-  const svg = document.getElementById("favSvg") as HTMLLinkElement | null;
-  const png = document.getElementById("favPng") as HTMLLinkElement | null;
-  const suffix = resolved === "dark" ? "dark" : "light";
-  if (svg) svg.href = `/assets/brand-${suffix}.svg?v=2`;
-  if (png) png.href = `/assets/brand-${suffix}-32.png?v=2`;
-  const touch = document.getElementById("favTouch") as HTMLLinkElement | null;
-  if (touch) touch.href = `/assets/brand-${suffix}-180.png?v=2`;
+/* 让支持 theme-color 的浏览器与页面底色一致；站点图标自带底色，不随页面主题换图。 */
+function syncBrowserTheme() {
+  const meta = document.getElementById("browserTheme") as HTMLMetaElement | null;
+  if (meta) meta.content = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
 }
 
 interface ThemeCtx {
   mode: ThemeMode;
+  resolved: "light" | "dark";
   setMode: (m: ThemeMode) => void;
 }
 
@@ -61,7 +62,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return () => mqLight.removeEventListener?.("change", onChange);
   }, [mode]);
 
-  const value = useMemo(() => ({ mode, setMode: setModeState }), [mode]);
+  const systemLight = useSyncExternalStore(subscribeSystemTheme, () => mqLight.matches);
+  const resolved = mode === "system" ? (systemLight ? "light" : "dark") : mode;
+  const value = useMemo(() => ({ mode, resolved, setMode: setModeState }), [mode, resolved]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

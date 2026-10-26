@@ -1,7 +1,7 @@
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
-// 开发期前后端各自独立起进程：/api、/healthz 代理到本机后端，避免跨域；
+// 开发期前后端各自独立起进程：业务API及标准订阅/MCP代理到本机后端，避免跨域；
 // 生产构建产物 dist/ 由 FastAPI 同源托管（见 app/main.py）。
 //
 // 后端端口固定 8730（与代码内置默认 MONITOR_PORT 保持一致，.env 未显式配置时即此值）；
@@ -15,6 +15,10 @@ export default defineConfig({
     proxy: {
       '/api': BACKEND_ORIGIN,
       '/healthz': BACKEND_ORIGIN,
+      '/mcp': BACKEND_ORIGIN,
+      '/calendar.ics': BACKEND_ORIGIN,
+      '/feed.atom': BACKEND_ORIGIN,
+      '/feed.rss': BACKEND_ORIGIN,
     },
   },
 })

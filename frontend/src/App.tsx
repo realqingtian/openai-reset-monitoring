@@ -1,10 +1,11 @@
 /* 日历为主、帖子为辅；读取与操作沿用现有权限和刷新链路。 */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
 import { j } from "./api/client";
-import type { Stats, Status, Tweet } from "./api/types";
+import type { EventFilter, Stats, Status, Tweet } from "./api/types";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { TimePreference, TimeProvider } from "./context/TimeContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { ToastProvider } from "./context/ToastContext";
 import { LangModeProvider } from "./i18n/LangModeContext";
@@ -14,12 +15,19 @@ import AnimatedContent from "./components/reactbits/AnimatedContent";
 import { CalendarSection } from "./features/calendar/Calendar";
 import { Feed } from "./features/feed/Feed";
 import { RhythmCard } from "./features/sidebar/Sidebar";
-import { TestNotifyButton } from "./components/TestNotifyButton";
+import { EventFilters } from "./features/events/EventFilters";
+const PublicSubscriptionsPanel = lazy(() => import("./features/subscriptions/PublicSubscriptions").then(module => ({ default: module.PublicSubscriptionsPanel })));
+
+// 邮件确认与退订链接使用独立入口，不占用日历主面板。
+const isSubscriptionEntry = () => /^#(?:email-confirm|subscription)=|^#visitor-subscriptions$/.test(location.hash);
+const subscribeEntry = (listener: () => void) => { window.addEventListener("hashchange", listener); return () => window.removeEventListener("hashchange", listener); };
 
 function Panel() {
   const { t } = useTranslation();
   const auth = useAuth();
+  const subscriptionEntry = useSyncExternalStore(subscribeEntry, isSubscriptionEntry);
   const [history, setHistory] = useState(false);
+  const [feedFilter, setFeedFilter] = useState<EventFilter>({ kind: "", phase: "", account: "" });
   const [status, setStatus] = useState<Status | null>(null);
   const [tweets, setTweets] = useState<Tweet[]>([]);
   const [hits, setHits] = useState<Tweet[]>([]);
@@ -56,17 +64,21 @@ function Panel() {
       }
     }
     // 各区收到数据即展示；一个接口失败不会丢弃其余成功结果。
+    const query = new URLSearchParams({ limit: "10" });
+    if (feedFilter.kind) query.set("kind", feedFilter.kind);
+    if (feedFilter.phase) query.set("phase", feedFilter.phase);
+    if (feedFilter.account) query.set("account", feedFilter.account);
     await Promise.all([
       load<Status>("/api/status", (st) => { setStatus(st); syncRequired(st.access_protected); }, "status"),
-      load<Tweet[]>("/api/tweets?limit=10", setTweets, "tweets"),
-      load<Tweet[]>("/api/hits?limit=10", setHits, "hits"),
+      load<Tweet[]>(`/api/tweets?${query}`, setTweets, "tweets"),
+      load<Tweet[]>(`/api/hits?${query}`, setHits, "hits"),
       load<Stats>("/api/stats", setStats, "stats"),
     ]);
     if (!controller.signal.aborted) {
       setRefreshing(false);
       requestRef.current = null;
     }
-  }, [syncRequired]);
+  }, [syncRequired, feedFilter]);
 
   useEffect(() => {
     // 日历挂载时已自行请求，首轮不再触发第二次拉取。
@@ -87,23 +99,36 @@ function Panel() {
   return (
     <>
       <button className="skip-link" type="button" onClick={() => document.getElementById("panel-content")?.focus()}>{t("skipToContent")}</button>
-      <Nav status={status} refreshing={refreshing || calendarLoading} onCheckDone={() => refresh()} />
+      <Nav status={status} refreshing={refreshing || (!subscriptionEntry && calendarLoading)} onCheckDone={() => refresh()} />
       <main id="panel-content" className="wrap" tabIndex={-1}>
         {errors.length > 0 && <div className="panel-load-error" role="alert"><span>{t("panelPartialFail")}</span><button type="button" disabled={refreshing} onClick={() => void refresh()}>{t("postsRetry")}</button></div>}
-        <CalendarSection tick={calTick} onLoadingChange={setCalendarLoading} />
-        <section className="rhythm-section" aria-label={t("rhythmTitle")} aria-busy={!ready.stats}>
+        {subscriptionEntry ? <>
+          <button className="btn btn-ghost" type="button" onClick={() => { location.hash = ""; }}>{t("backToCalendar")}</button>
+          <Suspense fallback={<p role="status">{t("monitorLoading")}</p>}><PublicSubscriptionsPanel /></Suspense>
+        </> : <>
+        <div className="panel-intro"><div><h1>{t("panelOverview")}</h1><p>{t("panelOverviewHint")}</p></div><TimePreference /></div>
+        <CalendarSection tick={calTick} onLoadingChange={setCalendarLoading} posts={
+        <section className="posts-section glass-surface" aria-label={t("feedView")}>
+          <div className="posts-heading"><h2>{t("panelPostsTitle")}</h2>
+          <div className="feed-tabs" role="group" aria-label={t("feedView")}>
+            <button type="button" aria-pressed={!history} onClick={() => setHistory(false)}>{t("panelAllPosts")}</button>
+            <button type="button" aria-pressed={history} onClick={() => setHistory(true)}>{t("panelResetPosts")}</button>
+          </div></div>
+          <details className="post-filter-options"><summary>{t("postFilters")}{feedFilter.kind || feedFilter.phase || feedFilter.account ? ` · ${t("filtersApplied")}` : ""}</summary>
+          <EventFilters value={feedFilter} accounts={status?.accounts || []} label={t("postFilters")} onChange={next => {
+            setReady(old => ({ ...old, tweets: false, hits: false })); setTweets([]); setHits([]); setFeedFilter(next);
+          }} />
+          </details>
+          <Feed key={(history ? "history" : "recent") + JSON.stringify(feedFilter)} filter={feedFilter} tweets={history ? hits : tweets} mirror={status?.avatar_mirror} history={history} initialLoading={!ready[history ? "hits" : "tweets"]} initialFailed={errors.includes(history ? "hits" : "tweets")} onRetry={() => void refresh()} windowHours={auth.loggedIn ? status?.lookback_hours ?? 24 : Math.min(status?.lookback_hours ?? 24, 24)} />
+        </section>
+        } heatmap={
+        <section className="rhythm-section rhythm-section--compact glass-surface" aria-label={t("heatTitle")} aria-busy={!ready.stats}>
           {!ready.stats ? <div className="rhythm-skeleton" role="status" aria-label={t("monitorLoading")}><span className="skeleton sk-title" /><div className="rhythm-skeleton-grid">{[0,1,2].map((n) => <span key={n} className="skeleton sk-stat" />)}</div><span className="skeleton sk-heat" /></div>
             : stats ? <AnimatedContent distance={8} duration={0.35} initialOpacity={0.6}><RhythmCard stats={stats} /></AnimatedContent>
             : <p className="section-load-error">{t("rhythmLoadFail")}</p>}
         </section>
-        <section className="posts-section" aria-label={t("feedView")}>
-          <div className="feed-tabs" role="group" aria-label={t("feedView")}>
-            <button type="button" aria-pressed={!history} onClick={() => setHistory(false)}>{t("recentPosts")}</button>
-            <button type="button" aria-pressed={history} onClick={() => setHistory(true)}>{t("hitHistory")}</button>
-          </div>
-          <Feed key={history ? "history" : "recent"} tweets={history ? hits : tweets} mirror={status?.avatar_mirror} history={history} initialLoading={!ready[history ? "hits" : "tweets"]} initialFailed={errors.includes(history ? "hits" : "tweets")} onRetry={() => void refresh()} windowHours={auth.loggedIn ? status?.lookback_hours ?? 24 : Math.min(status?.lookback_hours ?? 24, 24)} />
-        </section>
-        {status?.debug && <div className="panel-utilities"><section className="card" aria-label={t("debugTitle")}><div className="card-core"><h2 className="sub-title">{t("debugTitle")}</h2>{status.demo && <p className="initial-note">{t("demoNotifyHint")}</p>}<TestNotifyButton /></div></section></div>}
+        } />
+        </>}
         <Footer status={status} />
       </main>
     </>
@@ -115,9 +140,9 @@ export default function App() {
     <ThemeProvider>
       <ToastProvider>
         <LangModeProvider>
-          <AuthProvider>
+          <TimeProvider><AuthProvider>
             <Panel />
-          </AuthProvider>
+          </AuthProvider></TimeProvider>
         </LangModeProvider>
       </ToastProvider>
     </ThemeProvider>

@@ -1,16 +1,14 @@
 /* 右栏卡片：实时统计（React Bits CountUp 数字动画）、重置节奏、数据源、通知渠道、历史命中、检查日志分页。 */
 
-import { memo, useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { j } from "../../api/client";
 import type { Poll, Stats, Status, Tweet } from "../../api/types";
 import { ago, fmt, hl, localOffsetLabel, safeUrl } from "../../utils/format";
 import { useLang } from "../../i18n/useLang";
-import { ForecastSummary } from "../forecast/ForecastSummary";
 import type { Lang } from "../../utils/format";
 import CountUp from "../../components/reactbits/CountUp";
-import { SVG_CLOSE } from "../../components/icons";
 
 export function LiveStats({ status }: { status: Status | null }) {
   const { t } = useTranslation();
@@ -38,7 +36,7 @@ export function LiveStats({ status }: { status: Status | null }) {
 
 /* GitHub 风格热力图：列=周、行=周一..周日，窗口固定 26 周（命中保留期 180 天）。
    日期一律按 UTC 日统计，与帖子区 UTC+0 时标口径一致；未来日期留空。
-   交互：悬停即时气泡（替代延迟高的原生 title），点击命中格在图下方展开当日明细。 */
+   默认选中 UTC 今天；选择历史日期后保留阅读位置，不随数据刷新跳回。 */
 const HEAT_WEEKS = 26;
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
@@ -71,7 +69,7 @@ async function loadDayHits(day: string, signal: AbortSignal): Promise<Tweet[]> {
   return list;
 }
 
-function DayDetail({ day, id, onClose }: { day: string; id: string; onClose: () => void }) {
+function DayDetail({ day, id }: { day: string; id: string }) {
   const { t } = useTranslation();
   const lang = useLang();
   const [rows, setRows] = useState<Tweet[] | null>(null);
@@ -84,12 +82,12 @@ function DayDetail({ day, id, onClose }: { day: string; id: string; onClose: () 
       .catch(() => { if (!controller.signal.aborted) setFailed(true); });
     return () => controller.abort();
   }, [day, retry]);
-  const head = `${day} ${weekdayShort(day, lang)}`;
+  const stamp = `${day} ${weekdayShort(day, lang)}`;
+  const head = day === new Date().toISOString().slice(0, 10) ? t("heatTodayDetails", { day: stamp }) : stamp;
   return (
     <div className="day-detail" id={id} role="region" aria-label={t("heatDayDetails", { day })} aria-busy={rows == null && !failed}>
       <div className="dd-head">
         <span>{rows == null ? head : t(rows.length ? "heatTip" : "heatTipZero", { day: head, n: rows.length })}</span>
-        <button className="dd-close" type="button" aria-label={t("ddClose")} onClick={onClose}><span aria-hidden="true" dangerouslySetInnerHTML={{ __html: SVG_CLOSE }} /></button>
       </div>
       {failed ? <div className="dd-empty section-load-error" role="alert"><span>{t("heatLoadFail")}</span><button type="button" onClick={() => { setFailed(false); setRetry((n) => n + 1); }}>{t("postsRetry")}</button></div>
         : rows == null ? <div className="dd-empty" role="status">{t("heatLoading")}</div>
@@ -105,11 +103,10 @@ function DayDetail({ day, id, onClose }: { day: string; id: string; onClose: () 
   );
 }
 
-const RhythmHeatmap = memo(function RhythmHeatmap({ daily, selDay, onSelect, detailId }: { daily: { day: string; count: number }[]; selDay: string | null; onSelect: (day: string) => void; detailId: string }) {
+const RhythmHeatmap = memo(function RhythmHeatmap({ daily, selDay, onSelect, detailId, scrollRef }: { daily: { day: string; count: number }[]; selDay: string; onSelect: (day: string) => void; detailId: string; scrollRef: RefObject<HTMLDivElement | null> }) {
   const { t } = useTranslation();
   const lang = useLang();
   const [tip, setTip] = useState<{ x: number; y: number; day: string; n: number } | null>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
   const counts = new Map(daily.map((d) => [d.day, d.count]));
   const now = new Date();
   const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
@@ -120,8 +117,22 @@ const RhythmHeatmap = memo(function RhythmHeatmap({ daily, selDay, onSelect, det
   // 窄屏保留格子大小，首次进入直接呈现最近一周；数据更新不重置用户滚动位置。
   useLayoutEffect(() => {
     const scroll = scrollRef.current;
-    if (scroll) scroll.scrollLeft = scroll.scrollWidth;
-  }, [start]);
+    if (!scroll) return;
+    let keepLatest = true;
+    let measuredWidth = scroll.clientWidth;
+    const onScroll = () => {
+      // 尺寸变化可能先触发 scroll，等观察器完成重排后再判断是否为用户向前浏览。
+      if (scroll.clientWidth === measuredWidth) keepLatest = scroll.scrollWidth - scroll.clientWidth - scroll.scrollLeft < 2;
+    };
+    const observer = new ResizeObserver(() => {
+      measuredWidth = scroll.clientWidth;
+      if (keepLatest) scroll.scrollLeft = scroll.scrollWidth;
+    });
+    scroll.scrollLeft = scroll.scrollWidth;
+    scroll.addEventListener("scroll", onScroll, { passive: true });
+    observer.observe(scroll);
+    return () => { observer.disconnect(); scroll.removeEventListener("scroll", onScroll); };
+  }, [start, scrollRef]);
   const months: { column: number; end: number; label: string; key: string }[] = [];
   for (let c = 0; c < HEAT_WEEKS; c++) {
     // 月份标在包含月初的那一周，而不是拖到下一个周一。
@@ -146,11 +157,11 @@ const RhythmHeatmap = memo(function RhythmHeatmap({ daily, selDay, onSelect, det
         const rect = element.getBoundingClientRect();
         setTip({ x: rect.left + rect.width / 2, y: rect.top, day, n });
       };
-      cells.push(n > 0 ? <button key={day} type="button" className={className} style={position}
-        aria-label={label} aria-pressed={selDay === day} aria-expanded={selDay === day} aria-controls={detailId}
+      cells.push(n > 0 || day === todayStr ? <button key={day} type="button" className={className} style={position}
+        aria-label={label} aria-current={day === todayStr ? "date" : undefined} aria-pressed={selDay === day} aria-controls={detailId}
         onMouseEnter={(event) => showTip(event.currentTarget)} onFocus={(event) => showTip(event.currentTarget)} onBlur={() => setTip(null)}
         onClick={() => { setTip(null); onSelect(day); }}
-        onKeyDown={(event) => { if (event.key === "Escape") { setTip(null); if (selDay) onSelect(selDay); } }} />
+        onKeyDown={(event) => { if (event.key === "Escape") setTip(null); }} />
         : <span key={day} className={className} style={position} onMouseEnter={(event) => showTip(event.currentTarget)} aria-hidden />);
 
     }
@@ -198,38 +209,31 @@ const RhythmHeatmap = memo(function RhythmHeatmap({ daily, selDay, onSelect, det
 
 export function RhythmCard({ stats }: { stats: Stats | null }) {
   const { t } = useTranslation();
-  const lang = useLang();
-  const [selDay, setSelDay] = useState<string | null>(null);
+  const today = new Date().toISOString().slice(0, 10);
+  const [selection, setSelection] = useState<{ day: string; today: string }>(() => ({ day: today, today }));
+  // 默认跟随 UTC 当天；人工选日后，后续刷新不覆盖用户的阅读状态。
+  const selDay = selection.day === selection.today ? today : selection.day;
+  const heatScrollRef = useRef<HTMLDivElement>(null);
   const detailId = useId();
-  const selectDay = useCallback((day: string) => setSelDay((old) => old === day ? null : day), []);
-  const closeDay = useCallback(() => {
-    document.getElementById(detailId)?.parentElement?.querySelector<HTMLButtonElement>('.heat-cell.sel')?.focus();
-    setSelDay(null);
-  }, [detailId]);
-  if (!stats || !stats.total_hits) {
+  const selectDay = useCallback((day: string) => setSelection({ day, today }), [today]);
+  const goToday = () => {
+    setSelection({ day: today, today });
+    const scroll = heatScrollRef.current;
+    if (scroll) scroll.scrollLeft = scroll.scrollWidth;
+  };
+  if (!stats) {
     return (
       <>
-        <h2 className="sub-title">{t("rhythmTitle")}</h2>
+        <h2 className="sub-title">{t("panelHeatTitle")}</h2>
         <div className="hempty">{t("rhythmEmpty")}</div>
       </>
     );
   }
-  const fmtHours = (h: number) => {
-    if (h >= 48) return lang === "zh" ? (h / 24).toFixed(1) + " 天" : (h / 24).toFixed(1) + " d";
-    return lang === "zh" ? Math.round(h) + " 小时" : Math.round(h) + " h";
-  };
   return (
     <>
-      <div className="rhythm-head"><h2 className="sub-title">{t("rhythmTitle")}</h2></div>
-      <div className="rhythm-layout"><div className="rhythm-metrics">
-        <ForecastSummary forecast={stats.forecast} />
-        <div className="rhythm-rows">
-          <div className="r-row" title={stats.forecast?.last_reset_at || ""}><span className="r-key">{t("forecastLastCompleted")}</span><span className="r-val">{ago(stats.forecast?.last_reset_at, lang)}</span></div>
-          <div className="r-row" title={t("rhythmAvgTip")}><span className="r-key">{t("forecastMedian")}</span><span className="r-val">{stats.forecast?.median_interval_hours != null ? fmtHours(stats.forecast.median_interval_hours) : "—"}</span></div>
-          <div className="r-row" title={t("rhythmTotal", { n: stats.total_hits })}><span className="r-key">{t("rhythmHits30")}</span><span className="r-val">{String(stats.hits_30d)}</span></div>
-        </div>
-      </div><div className="rhythm-activity"><h3>{t("heatTitle")}</h3><RhythmHeatmap daily={stats.daily_hits || []} selDay={selDay} onSelect={selectDay} detailId={detailId} /></div></div>
-      {selDay && <DayDetail key={selDay} day={selDay} id={detailId} onClose={closeDay} />}
+      <div className="rhythm-head"><h2 className="sub-title">{t("panelHeatTitle")}</h2><span>{t("panelHeatRange")}</span><button className="heat-today-action" type="button" aria-label={t("heatBackToToday")} onClick={goToday}>{t("calToday")}</button></div>
+      <RhythmHeatmap daily={stats.daily_hits || []} selDay={selDay} onSelect={selectDay} detailId={detailId} scrollRef={heatScrollRef} />
+      <DayDetail key={selDay} day={selDay} id={detailId} />
     </>
   );
 }
