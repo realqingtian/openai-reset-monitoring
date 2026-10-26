@@ -408,6 +408,8 @@ const zh: Record<string, string> = {
   panelPartialFail: "部分数据更新失败，已加载的内容仍可查看。",
   rhythmLoadFail: "重置节奏加载失败，请重新加载。",
   calLoadFail: "日历更新失败，请重试。",
+  calNavigation: "月份导航",
+  calMonthRetry: "本月加载失败，点此重试",
   postsLoaded: "已加载 {{n}} 条帖子",
   postsScrollHint: "滚动浏览帖子",
   postsLoadFail: "帖子加载失败",

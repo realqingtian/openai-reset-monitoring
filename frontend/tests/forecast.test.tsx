@@ -15,7 +15,7 @@ const preview = { id: "preview", account: "fixture", text: "But today is a reset
 const render = (forecast: ResetForecast) => renderToStaticMarkup(<I18nextProvider i18n={i18n}><TimeProvider><ForecastSummary forecast={forecast} compact /></TimeProvider></I18nextProvider>);
 
 describe("next reset information hierarchy", () => {
-  test("untimed preview is visible before evidence is expanded, without inventing a time", () => {
+  test("untimed preview keeps timing uncertain with evidence collapsed by default", () => {
     const html = render({ ...base, pending_preview: preview });
     expect(html).toContain("下次重置时间待定");
     expect(html).toContain("@fixture 提到帖文发布当天重置，具体时间与时区尚未明确。");
@@ -24,6 +24,7 @@ describe("next reset information hierarchy", () => {
     expect(html).not.toContain('class="forecast-outlook forecast-window"');
     expect(html).toContain('href="https://example.com/post"');
     expect(html).toContain('aria-expanded="false"');
+    expect(html).toContain('hidden=""');
   });
   test("old same-day wording is not presented as a new promise for today", () => {
     const html = render({ ...base, pending_preview: { ...preview, published_at: new Date(Date.now() - 25 * 3600000).toISOString() } });

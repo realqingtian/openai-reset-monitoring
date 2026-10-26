@@ -36,10 +36,15 @@ function CalendarBody({ tick, onLoadingChange, posts, heatmap }: CalendarProps) 
   const locale = lang === "zh" ? "zh-CN" : "en-US";
   const [ym, setYm] = useState(() => ({ y: initial[0], m: initial[1] }));
   const [data, setData] = useState<CalendarData | null>(null);
+  // 预测是全局快照，月记录单独缓存；翻月不清空预测，也不把旧月记录当成新月的空结果。
+  const [monthEvents, setMonthEvents] = useState(() => new Map<string, CalendarEvent[]>());
+  const monthKey = `${ym.y}-${ym.m}`;
+  const currentEvents = monthEvents.get(monthKey);
   const [err, setErr] = useState(false);
   const [loading, setLoading] = useState(true);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const detailsId = useId();
+  const gridId = useId();
   const closeDetails = useCallback(() => setDetailsOpen(false), []);
   const [retry, setRetry] = useState(0);
   const [sel, setSel] = useState(() => dayKey(new Date()));
@@ -55,26 +60,35 @@ function CalendarBody({ tick, onLoadingChange, posts, heatmap }: CalendarProps) 
       setLoading(true);
       onLoadingChange(true);
       void j<CalendarData>(`/api/calendar?year=${ym.y}&month=${ym.m}`, { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(20000)]) }).then((d) => {
-        if (!controller.signal.aborted) { setData(d); setErr(false); }
+        if (!controller.signal.aborted) {
+          setData(d); setErr(false);
+          setMonthEvents(old => {
+            const next = new Map(old);
+            next.delete(monthKey);
+            next.set(monthKey, d.events);
+            if (next.size > 12) next.delete(next.keys().next().value!);
+            return next;
+          });
+        }
       }).catch(() => { if (!controller.signal.aborted) setErr(true); })
         .finally(() => { if (!controller.signal.aborted) { setLoading(false); onLoadingChange(false); } });
     });
     return () => controller.abort();
-  }, [ym, tick, retry, onLoadingChange]);
+  }, [ym, monthKey, tick, retry, onLoadingChange]);
 
   const byDay = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
-    data?.events.forEach((ev) => {
+    currentEvents?.forEach((ev) => {
       const key = dayKey(new Date(ev.created_at));
       map.set(key, [...(map.get(key) || []), ev]);
     });
     map.forEach((events) => events.sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id)));
     return map;
-  }, [data, dayKey]);
+  }, [currentEvents, dayKey]);
   const cells = useMemo(() => {
     const offset = (new Date(Date.UTC(ym.y, ym.m - 1, 1)).getUTCDay() + 6) % 7;
-    const count = Math.ceil((offset + new Date(Date.UTC(ym.y, ym.m, 0)).getUTCDate()) / 7) * 7;
-    return Array.from({ length: count }, (_, i) => {
+    // 固定六周，四/五/六行月份之间切换时，后面的活跃度和帖子不跟着上下移动。
+    return Array.from({ length: 42 }, (_, i) => {
       const date = new Date(Date.UTC(ym.y, ym.m - 1, i + 1 - offset));
       return { key: date.toISOString().slice(0, 10), num: date.getUTCDate(), off: date.getUTCMonth() + 1 !== ym.m };
     });
@@ -91,7 +105,7 @@ function CalendarBody({ tick, onLoadingChange, posts, heatmap }: CalendarProps) 
   const month = new Intl.DateTimeFormat(locale, { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(ym.y, ym.m - 1, 1)));
   function goMonth(delta: number) {
     const next = new Date(Date.UTC(ym.y, ym.m - 1 + delta, 1));
-    setData(null); setErr(false); setLoading(true);
+    setErr(false); setLoading(true);
     setYm({ y: next.getUTCFullYear(), m: next.getUTCMonth() + 1 });
     setSel(next.toISOString().slice(0, 10));
     setDetailsOpen(false);
@@ -99,12 +113,12 @@ function CalendarBody({ tick, onLoadingChange, posts, heatmap }: CalendarProps) 
   function goToday() {
     const today = dayKey(new Date());
     const [y, m] = today.split("-").map(Number);
-    if (ym.y !== y || ym.m !== m) { setData(null); setErr(false); setLoading(true); setYm({ y, m }); }
+    if (ym.y !== y || ym.m !== m) { setErr(false); setLoading(true); setYm({ y, m }); }
     setSel(today);
     setDetailsOpen(false);
   }
   return <div className="reset-workspace">
-      <section className="forecast-strip glass-surface" aria-label={t("forecastPanelTitle")} aria-busy={loading}>
+      <section className="forecast-strip glass-surface" aria-label={t("forecastPanelTitle")} aria-busy={!data && loading}>
         <span className="forecast-symbol" aria-hidden="true"><img src="/assets/calendar-days.svg" width={30} height={30} alt="" /></span>
         <div className="forecast-strip-content">
           <h2>{t("forecastPanelTitle")}</h2>
@@ -122,27 +136,28 @@ function CalendarBody({ tick, onLoadingChange, posts, heatmap }: CalendarProps) 
         </aside>
       </section>
       <section className="calendar-month glass-surface" aria-label={t("calTitle")} aria-busy={loading}>
+        <span className="cal-load-indicator" aria-hidden="true" />
         <div className="cal-nav">
-          <div className="cal-heading"><h2>{t("calTitle")}</h2><h3>{month}</h3></div>
-          <div className="cal-month-actions">
-            <button className="cal-nav-btn" type="button" aria-label={t("calPrev")} onClick={() => goMonth(-1)}><span aria-hidden="true" dangerouslySetInnerHTML={{ __html: SVG_CHEV_LEFT }} /></button>
-            <button className="cal-nav-btn cal-today-btn" type="button" onClick={goToday}>{t("calToday")}</button>
-            <button className="cal-nav-btn" type="button" aria-label={t("calNext")} onClick={() => goMonth(1)}><span aria-hidden="true" dangerouslySetInnerHTML={{ __html: SVG_CHEV_RIGHT }} /></button>
+          <div className="cal-heading"><h2>{t("calTitle")}</h2><h3 aria-live="polite" aria-atomic="true">{month}</h3></div>
+          <div className="cal-month-actions" role="group" aria-label={t("calNavigation")}>
+            <button className="cal-nav-btn" type="button" aria-label={t("calPrev")} title={t("calPrev")} aria-controls={gridId} onClick={() => goMonth(-1)}><span aria-hidden="true" dangerouslySetInnerHTML={{ __html: SVG_CHEV_LEFT }} /></button>
+            <button className="cal-nav-btn cal-today-btn" type="button" title={t("heatBackToToday")} aria-controls={gridId} onClick={goToday}>{t("calToday")}</button>
+            <button className="cal-nav-btn" type="button" aria-label={t("calNext")} title={t("calNext")} aria-controls={gridId} onClick={() => goMonth(1)}><span aria-hidden="true" dangerouslySetInnerHTML={{ __html: SVG_CHEV_RIGHT }} /></button>
           </div>
         </div>
-        {err && <div className="cal-message section-load-error" role="alert"><span>{t("calLoadFail")}</span><button type="button" disabled={loading} onClick={() => setRetry((n) => n + 1)}>{t("postsRetry")}</button></div>}
-        {!data && loading && <span className="sr-only" role="status">{t("monitorLoading")}</span>}
-        <div className="cal-grid" role="group" aria-label={month}>
+        <div className="cal-status-slot">{err && <div role="alert"><button type="button" title={t("calLoadFail")} disabled={loading} onClick={() => setRetry((n) => n + 1)}>{t("calMonthRetry")}</button></div>}</div>
+        {loading && <span className="sr-only" role="status">{t("monitorLoading")}</span>}
+        <div className="cal-grid" id={gridId} role="group" aria-label={month}>
           {[1,2,3,4,5,6,7].map((i) => <span key={i} className="cal-wd">{t(`calWd${i}`)}</span>)}
           {cells.map((cell, index) => {
             const list = byDay.get(cell.key) || [];
             return <button key={cell.key} type="button"
               className={`cal-cell${cell.off ? " off" : ""}${cell.key === today ? " today" : ""}${cell.key === sel ? " sel" : ""}`}
-              aria-label={`${t("calSelectDay", { day: cell.key })} · ${t("calEventCount", { n: list.length })}${inWindow(cell.key) ? ` · ${t("forecastWindowShort")}` : ""}`} aria-pressed={cell.key === sel} aria-haspopup="dialog" aria-expanded={detailsOpen && cell.key === sel} aria-controls={detailsOpen && cell.key === sel ? detailsId : undefined}
+              aria-label={`${t("calSelectDay", { day: cell.key })} · ${currentEvents ? t("calEventCount", { n: list.length }) : t(err ? "calLoadFail" : "monitorLoading")}${inWindow(cell.key) ? ` · ${t("forecastWindowShort")}` : ""}`} aria-pressed={cell.key === sel} aria-haspopup="dialog" aria-expanded={detailsOpen && cell.key === sel} aria-controls={detailsOpen && cell.key === sel ? detailsId : undefined}
               onClick={() => {
                 if (cell.off) {
                   const date = new Date(`${cell.key}T00:00:00Z`);
-                  setData(null); setErr(false); setLoading(true); setYm({ y: date.getUTCFullYear(), m: date.getUTCMonth() + 1 });
+                  setErr(false); setLoading(true); setYm({ y: date.getUTCFullYear(), m: date.getUTCMonth() + 1 });
                 }
                 setSel(cell.key);
                 setDetailsOpen(true);
@@ -164,7 +179,7 @@ function CalendarBody({ tick, onLoadingChange, posts, heatmap }: CalendarProps) 
       </section>
       {heatmap}
       {posts}
-      {detailsOpen && <CalendarDayDialog id={detailsId} day={sel} events={selectedEvents} today={today} ready={!!data} loading={loading} failed={err} predicted={inWindow(sel)} onClose={closeDetails} onRetry={() => setRetry(n => n + 1)} />}
+      {detailsOpen && <CalendarDayDialog id={detailsId} day={sel} events={selectedEvents} today={today} ready={!!currentEvents} loading={loading} failed={err} predicted={inWindow(sel)} onClose={closeDetails} onRetry={() => setRetry(n => n + 1)} />}
     </div>;
 }
 

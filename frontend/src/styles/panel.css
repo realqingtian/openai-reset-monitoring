@@ -1088,7 +1088,9 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 2px s
 .feed-tabs button { border-radius: 0; border-bottom: 2px solid transparent; padding: 16px 3px 12px; font-size: 15px; font-weight: 600; }
 .feed-tabs button[aria-pressed="true"] { background: transparent; color: var(--hit-accent); border-bottom-color: var(--hit-accent); }
 .post-row.tentry, .post-row.tentry:last-child { display: flex; gap: 14px; padding: 17px 14px; border-bottom: 1px solid var(--line); }
-.post-row:hover { background: var(--row-hover); }
+@media (hover: hover) and (pointer: fine) {
+  .post-row:hover { background: var(--row-hover); }
+}
 .post-row-main { min-width: 0; flex: 1; }
 .post-byline { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin: 0 0 6px; }
 .post-age { border: 0; background: transparent; color: var(--muted); font-size: 11px; padding: 0; }
@@ -1757,22 +1759,31 @@ body::before { content: ''; position: fixed; inset: 0; z-index: -1; background-i
 .forecast-summary--compact .forecast-evidence { margin-top: 6px; font-size: 12px; }
 .forecast-evidence > summary { min-height: 28px; line-height: 28px; }
 .forecast-loading { margin: 8px 0; }
-.latest-completion { display: flex; align-items: flex-start; gap: 10px; flex: 0 0 260px; min-width: 0; padding: 12px 0 12px 22px; border-left: 1px solid var(--line-strong); color: var(--muted); }
+.latest-completion { display: flex; align-items: flex-start; gap: 10px; flex: 0 0 260px; min-width: 0; padding: 12px 0 12px 22px; color: var(--muted); }
 .latest-completion .ui-icon svg { width: 20px; height: 20px; }
 .latest-completion > div { display: grid; gap: 8px; min-width: 0; font-size: 13px; }
 .latest-completion strong { color: var(--text); font-weight: 600; font-size: 21px; line-height: 1.4; letter-spacing: -.025em; font-variant-numeric: tabular-nums; }
 .latest-completion-meta { font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .latest-completion-note { font-size: 11px; line-height: 1.6; }
 .latest-completion-empty { font-size: 14px; line-height: 1.6; }
-.reset-workspace .calendar-month { grid-area: calendar; padding: 22px 28px 24px; }
-.reset-workspace .cal-nav { margin: 0 0 16px; flex-wrap: nowrap; min-height: 58px; gap: 10px; }
-.reset-workspace .cal-heading { display: grid; gap: 8px; }
+.reset-workspace .calendar-month { position: relative; overflow: hidden; grid-area: calendar; padding: 22px 28px 24px; }
+.cal-load-indicator { position: absolute; top: 0; left: 25%; width: 50%; height: 2px; background: var(--hit-accent); opacity: 0; transition: opacity .15s ease; pointer-events: none; }
+.calendar-month[aria-busy="true"] .cal-load-indicator { opacity: .65; }
+.cal-status-slot { display: flex; align-items: center; height: 28px; }
+.cal-status-slot button { min-height: 28px; padding: 2px 0; border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 11px; cursor: pointer; }
+.cal-status-slot button:hover { color: var(--text); }
+.reset-workspace .cal-nav { margin: 0; flex-wrap: nowrap; min-height: 58px; gap: 10px; }
+.reset-workspace .cal-heading { display: grid; gap: 8px; min-width: 0; }
 .reset-workspace .cal-heading h2 { margin: 0; font-size: 22px; letter-spacing: -.025em; font-weight: 650; }
-.reset-workspace .cal-heading h3 { margin: 0; font-size: 16px; letter-spacing: -.025em; font-weight: 500; }
-.reset-workspace .cal-month-actions { gap: 8px; padding: 0; border: 0; box-shadow: none; background: transparent; }
-.reset-workspace .cal-nav-btn { width: 40px; height: 40px; min-width: 40px; border: 1px solid var(--core-line); border-radius: 50%; background: var(--btn2-bg); box-shadow: var(--core-inset), var(--card-shadow); color: var(--text); }
-.reset-workspace .cal-today-btn { min-width: 44px; width: auto; padding: 0 4px; border: 0; box-shadow: none; background: transparent; color: var(--hit-accent); font-size: 12px; }
-.reset-workspace .cal-nav-btn:hover { background: var(--btn2-hover); }
+.reset-workspace .cal-heading h3 { margin: 0; font-size: 16px; letter-spacing: -.025em; font-weight: 500; white-space: nowrap; }
+.reset-workspace .cal-month-actions { flex-shrink: 0; gap: 0; padding: 0; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
+.reset-workspace .cal-nav-btn { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; min-width: 44px; border: 0; border-radius: 14px; background: transparent; box-shadow: none; color: var(--text); -webkit-tap-highlight-color: transparent; }
+.reset-workspace .cal-today-btn { min-width: 44px; width: auto; padding: 0 4px; color: var(--hit-accent); font-size: 13px; font-weight: 500; }
+.reset-workspace .cal-nav-btn:focus-visible { outline-offset: -3px; border-radius: 14px; }
+.reset-workspace .cal-nav-btn:active { background: var(--btn2-hover); transform: none; }
+@media (hover: hover) and (pointer: fine) {
+  .reset-workspace .cal-nav-btn:hover { background: transparent; color: var(--hit-accent); }
+}
 .reset-workspace .cal-grid { border: 0; border-radius: 0; overflow: visible; grid-template-rows: 32px; grid-auto-rows: 50px; gap: 0; }
 .reset-workspace .cal-wd { display: flex; align-items: center; justify-content: center; padding: 0; border: 0; font-size: 12px; text-align: center; }
 .reset-workspace .cal-cell { position: relative; min-height: 44px; height: 50px; padding: 4px 0 6px; gap: 0; align-items: center; justify-content: center; border: 0; border-radius: 14px; background: transparent; box-shadow: none; }
@@ -1800,7 +1811,12 @@ body::before { content: ''; position: fixed; inset: 0; z-index: -1; background-i
 .reset-workspace .event-filters .select-field { min-width: 120px; }
 .reset-workspace .event-filters .select-trigger { font-size: 13px; background: var(--shell); }
 .reset-workspace .feed-scroll { min-height: 100px; flex: 1; max-height: none; overflow-y: visible; padding-right: 0; }
-.reset-workspace .post-row.tentry { padding: 16px 0; gap: 12px; }
+.reset-workspace .post-row.tentry { padding: 16px 12px; gap: 12px; border-bottom: 0; border-radius: 14px; transition: background-color .15s ease; }
+.reset-workspace .post-row::after { content: ""; position: absolute; bottom: 0; left: 12px; right: 12px; height: 1px; background: var(--line); pointer-events: none; }
+.reset-workspace .tlist > div:last-child .post-row::after { display: none; }
+.reset-workspace .post-row:has(:focus-visible) { background: var(--row-hover); }
+.reset-workspace .post-row .entry-link, .reset-workspace .post-row .entry-act { border-radius: 8px; -webkit-tap-highlight-color: transparent; }
+.reset-workspace .post-row .entry-link:active, .reset-workspace .post-row .entry-act:active { background: var(--btn2-hover); }
 .reset-workspace .post-byline { gap: 3px 8px; margin-bottom: 5px; }
 .reset-workspace .tname { font-family: var(--font-sans); font-size: 14px; font-weight: 600; letter-spacing: -.025em; }
 .reset-workspace .thandle { font-size: 11px; color: var(--muted); }
@@ -1856,7 +1872,6 @@ body::before { content: ''; position: fixed; inset: 0; z-index: -1; background-i
   .posts-heading { flex-wrap: wrap; gap: 6px; }
   .posts-heading h2 { font-size: 18px; }
   .posts-heading .feed-tabs button { padding-left: 10px; padding-right: 10px; }
-  .reset-workspace .cal-month-actions { gap: 2px; }
 }
 @media (max-width: 800px) {
   .nav--focused { width: calc(100% - 32px); top: max(10px, env(safe-area-inset-top)); margin-top: max(10px, env(safe-area-inset-top)); }
@@ -1886,12 +1901,12 @@ body::before { content: ''; position: fixed; inset: 0; z-index: -1; background-i
   .forecast-summary--compact .forecast-summary-heading strong { font-size: 22px; }
   .forecast-summary--compact .forecast-explanation { font-size: 12px; }
   .forecast-summary--compact .forecast-window { font-size: 17px; }
-  .latest-completion { flex: 1 1 100%; border-left: 0; border-top: 1px solid var(--line); padding: 16px 0 0; gap: 10px; }
+  .latest-completion { flex: 1 1 100%; padding: 16px 0 0; gap: 10px; }
   .latest-completion > div { gap: 6px; font-size: 12px; }
   .latest-completion strong { font-size: 22px; }
   .latest-completion .ui-icon svg { width: 16px; height: 16px; }
   .reset-workspace .calendar-month { padding: 20px 18px 24px; }
-  .reset-workspace .cal-nav { margin: 0 0 12px; }
+  .reset-workspace .cal-nav { margin: 0; }
   .reset-workspace .cal-heading { gap: 6px; }
   .reset-workspace .cal-heading h2 { font-size: 13px; font-weight: 500; color: var(--muted); }
   .reset-workspace .cal-heading h3 { font-size: 22px; font-weight: 600; }
@@ -1899,15 +1914,13 @@ body::before { content: ''; position: fixed; inset: 0; z-index: -1; background-i
   .reset-workspace .cal-cell { height: 48px; }
   .reset-workspace .cal-num { width: 34px; height: 34px; font-size: 15px; }
   .reset-workspace .cal-wd { font-size: 11px; }
-  .reset-workspace .cal-nav-btn { width: 36px; height: 40px; min-width: 36px; }
-  .reset-workspace .cal-today-btn { padding: 0 3px; min-width: 40px; }
   .reset-workspace .posts-section { height: auto; max-height: none; padding: 18px 18px 0; }
   .posts-heading { flex-wrap: nowrap; }
   .posts-heading h2 { font-size: 20px; }
   .reset-workspace .feed-scroll { max-height: none; overflow-y: visible; padding-right: 0; overscroll-behavior-y: auto; }
   .reset-workspace .post-filter-options > summary { min-height: 40px; padding: 12px 0; }
   .reset-workspace .event-filters .select-trigger { font-size: 16px; }
-  .reset-workspace .post-row.tentry { padding: 18px 0; }
+  .reset-workspace .post-row.tentry { padding: 18px 10px; }
   .reset-workspace .post-content .entry-text { font-size: 14px; }
   .reset-workspace .heat-month { font-size: 11px; line-height: 20px; }
   .reset-workspace .heat-weekday { font-size: 10px; }
@@ -1945,9 +1958,7 @@ body::before { content: ''; position: fixed; inset: 0; z-index: -1; background-i
   .panel-intro h1 { font-size: 30px; }
   .panel-intro { margin-left: 8px; margin-right: 8px; }
   .reset-workspace .calendar-month, .reset-workspace .posts-section, .reset-workspace .rhythm-section { padding-left: 12px; padding-right: 12px; }
-  .reset-workspace .cal-heading h3 { font-size: 19px; }
-  .reset-workspace .cal-nav-btn { min-width: 32px; width: 32px; }
-  .reset-workspace .cal-today-btn { font-size: 11px; min-width: 34px; }
+  .reset-workspace .cal-heading h3 { font-size: 17px; }
   .reset-workspace .cal-num { width: 30px; height: 30px; font-size: 14px; }
   .reset-workspace .cal-wd { font-size: 10px; }
   .reset-workspace .posts-heading { flex-wrap: wrap; gap: 8px; }

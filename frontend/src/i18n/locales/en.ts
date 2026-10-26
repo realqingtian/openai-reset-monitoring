@@ -408,6 +408,8 @@ const en: Record<string, string> = {
   panelPartialFail: "Some data could not be updated. Loaded content is still available.",
   rhythmLoadFail: "Reset rhythm could not be loaded. Please retry.",
   calLoadFail: "Calendar could not be updated. Please retry.",
+  calNavigation: "Month navigation",
+  calMonthRetry: "Could not load month · Retry",
   postsLoaded: "{{n}} posts loaded",
   postsScrollHint: "Scroll to browse",
   postsLoadFail: "Could not load posts",

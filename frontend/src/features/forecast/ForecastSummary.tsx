@@ -1,4 +1,4 @@
-/* 首屏优先回答下次重置时间；来源措辞不直接换算为浏览者的今天。 */
+/* 首屏展示时间结论，详细依据按需展开；来源措辞不直接换算为浏览者的今天。 */
 import { useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ResetForecast } from "../../api/types";
