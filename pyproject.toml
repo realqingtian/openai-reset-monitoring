@@ -21,6 +21,10 @@ dependencies = [
     "uvicorn>=0.39.0",
 ]
 
+[project.optional-dependencies]
+# 只在运营者启用 Web Push 时安装；默认部署与用户自管 .venv 不自动变动。
+webpush = ["pywebpush>=2.0"]
+
 [dependency-groups]
 # 代码检查：ruff 负责静态检查与格式化（配置见下方 [tool.ruff]），mypy 负责类型检查（配置见下方 [tool.mypy]）
 dev = ["mypy>=1.19", "ruff>=0.16"]

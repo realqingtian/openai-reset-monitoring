@@ -19,7 +19,7 @@ from app.core.config import Settings
 from app.core.timeutil import iso_utc
 from app.integrations import ai as ai_upstream
 from app.repositories import app_state, tweets
-from app.schemas.forecast import ForecastEvidenceOut, ResetForecastOut
+from app.schemas.forecast import ForecastEvidenceOut, ResetForecastOut, ResetPreviewOut
 from app.services.ai import _extract_json
 
 log = logging.getLogger("reset_forecast")
@@ -35,6 +35,35 @@ _COMPLETED = re.compile(
     r"(?:have|has|were|was|been|i have|i've|we have)\s+(?:\w+\s+){0,3}reset|all propagated|reset.*(?:complete|done)|额度.*(?:已|恢复|补满)",
     re.I,
 )
+_RESET_DAY = re.compile(r"\btoday(?:\s+is|['’]s)\s+(?:a\s+)?reset\b|\breset\s+day(?:\s+today)?\b", re.I)
+
+
+def is_reset_day_pledge(text: str) -> bool:
+    body = re.split(r"(?:Tibo|Thibault Sottiaux):", text, maxsplit=1)[0]
+    return bool(
+        _RESET_DAY.search(body)
+        and not _COMPLETED.search(body)
+        and not re.search(r"\b(?:done|finished|completed)\b|已完成|重置完成", body, re.I)
+    )
+
+
+def bound_completion_to_source(event: dict[str, Any], text: str) -> dict[str, Any]:
+    """当天重置承诺不代表完成；读取旧缓存时也校验，不重写原始分析或人工结论。"""
+    if (
+        not event.get("manual")
+        and event.get("kind") == "quota"
+        and event.get("phase") == "completed"
+        and is_reset_day_pledge(text)
+    ):
+        return {
+            **event,
+            "phase": "scheduled",
+            "explicit": False,
+            "start": None,
+            "end": None,
+            "reason": "原帖仅承诺当天重置，尚未明确确认完成。",
+        }
+    return event
 
 
 class AnalysisEvent(BaseModel):
@@ -107,7 +136,7 @@ def validate_analysis(raw: str, rows: list[dict[str, Any]]) -> list[dict[str, An
                 raise ValueError("预告时间超出合理范围")
             if event.end - event.start > timedelta(hours=48):
                 raise ValueError("预告窗口过宽")
-        result.append(event.model_dump(mode="json"))
+        result.append(bound_completion_to_source(event.model_dump(mode="json"), row.get("text") or ""))
     # 缺少行意味着模型截断或漏读，不缓存残缺分析造成乐观预测。
     if seen != set(by_id):
         raise ValueError("AI 未覆盖全部候选公告")
@@ -135,6 +164,7 @@ async def refresh(cfg: Settings, client) -> None:
                 "phase 为 completed（正文明确已完成）、scheduled（未来预告）、unknown。"
                 "引文可能是旧预告：All propagated/confirmed landed 等新正文优先，不能把引文当下一次预告。"
                 "订阅/限额调整不是额度重置。Day N/Reset、投票、设想不代表完成。"
+                "today is a reset/reset day today 仅是当天重置承诺，标 scheduled；除非新正文另有明确完成确认。"
                 "每条返回原始 id，reason 用中文一句解释。不要预测固定周期，不要编造事件或时区。"
                 "只有正文明确给出未来生效日期/时间且时区可确定，才令 explicit=true 并返回 UTC ISO start/end。"
                 "EOD/今晚/明天而时区未知，窗口必须为 null。已完成公告也必须为 null。"
@@ -182,9 +212,12 @@ def fallback_events(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             continue
         # 去掉拼接引文，避免旧的「已重置」污染当前仅讨论/预告的新帖。
         text = re.split(r"(?:Tibo|Thibault Sottiaux):", row.get("text") or "", maxsplit=1)[0]
-        if not re.search(r"banked reset|reset card|subscription|subscribe", text, re.I) and _COMPLETED.search(text):
+        if re.search(r"banked reset|reset card|subscription|subscribe", text, re.I):
+            continue
+        phase = "completed" if _COMPLETED.search(text) else "scheduled" if is_reset_day_pledge(text) else None
+        if phase:
             out.append(
-                {"id": row["id"], "kind": "quota", "phase": "completed", "explicit": False, "start": None, "end": None}
+                {"id": row["id"], "kind": "quota", "phase": phase, "explicit": False, "start": None, "end": None}
             )
     return out
 
@@ -193,6 +226,11 @@ def calculate(
     rows: list[dict[str, Any]], events: list[dict[str, Any]], now: datetime, *, ai_used: bool = False
 ) -> ResetForecastOut:
     by_id = {r["id"]: r for r in rows}
+    events = [
+        bound_completion_to_source(event, by_id[event["id"]].get("text") or "")
+        for event in events
+        if event["id"] in by_id
+    ]
     times = sorted(t for t in (parse_time(r["created_at"]) for r in rows) if t and t <= now)
     out = ResetForecastOut(
         sample_posts=len(rows),
@@ -228,18 +266,25 @@ def calculate(
         published = parse_time(row["created_at"]) if row else None
         if (
             published is not None
+            and published <= now
             and (last is None or published > last)
             and event["kind"] == "quota"
             and event["phase"] == "scheduled"
-            and event.get("explicit")
-            and parse_time(event.get("start"))
-            and parse_time(event.get("end"))
         ):
             scheduled.append(event)
     if scheduled:
         event = max(scheduled, key=lambda e: by_id[e["id"]]["created_at"])
-        start, end = parse_time(event["start"]), parse_time(event["end"])
-        if start is not None and end is not None:
+        source = by_id[event["id"]]
+        out.pending_preview = ResetPreviewOut(
+            id=event["id"],
+            account=source.get("account") or "",
+            text=(source.get("text") or "")[:240],
+            url=source.get("url") or "",
+            published_at=source["created_at"],
+            timing="same_day" if is_reset_day_pledge(source.get("text") or "") else "unspecified",
+        )
+        start, end = parse_time(event.get("start")), parse_time(event.get("end"))
+        if event.get("explicit") and start is not None and end is not None:
             out.status = "announced" if end >= now else "expired"
             out.method, out.confidence = "ai_announcement", "medium"
             out.reason_code = "announcement" if end >= now else "elapsed"
@@ -247,18 +292,9 @@ def calculate(
             out.expected_at = iso_utc(start + (end - start) / 2) if end >= now else None
             out.evidence_ids, out.ai_reason = [event["id"]], event.get("reason")
             return out
-    # 新预告没有可确定时区时，历史规律也不能替官方补出具体时刻。
-    for event in events:
-        row = by_id.get(event["id"])
-        published = parse_time(row["created_at"]) if row else None
-        if (
-            published
-            and (last is None or published > last)
-            and event["kind"] == "quota"
-            and event["phase"] == "scheduled"
-        ):
-            out.reason_code = "timezone_unknown"
-            return out
+        # 只采用最新预告；缺少时区时保留来源，不拿旧预告或历史规律补出具体时刻。
+        out.reason_code = "timezone_unknown"
+        return out
     if len(groups) < MIN_EVENTS:
         return out
     gaps = [(b[0] - a[0]).total_seconds() / 3600 for a, b in zip(groups, groups[1:])]
@@ -287,8 +323,18 @@ async def snapshot(cfg: Optional[Settings], now: datetime) -> ResetForecastOut:
     active = cache.get("fingerprint") == fingerprint(rows, cfg)
     cached_events = cache.get("events") if active else None
     events = cached_events if isinstance(cached_events, list) else fallback_events(rows)
-    out = calculate(rows, events, now, ai_used=isinstance(cached_events, list))
+    from app.services import review_state
+
+    events, withdrawn = await review_state.apply_analysis(rows, events, collapse_merges=True)
     by_id = {r["id"]: r for r in rows}
+    events = [
+        bound_completion_to_source(event, by_id[event["id"]].get("text") or "")
+        for event in events
+        if event["id"] in by_id
+    ]
+    out = calculate(
+        [row for row in rows if not withdrawn.get(row["id"])], events, now, ai_used=isinstance(cached_events, list)
+    )
     by_event = {e["id"]: e for e in events}
     ids = out.evidence_ids or sorted(by_event, key=lambda tid: by_id.get(tid, {}).get("created_at", ""))[-3:]
     out.evidence = [

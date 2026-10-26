@@ -14,14 +14,14 @@ from typing import Optional
 import httpx
 import uvicorn
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api import api_router
 from app.core import config as config_mod
 from app.core import errors as errors_mod
 from app.db import database
-from app.services import matcher, poller, rescan
+from app.services import matcher, poller, rescan, subscriptions
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 # RSSHub 鉴权通过 query 参数传递，httpx 的 INFO 请求日志会泄露参数，保留错误日志即可。
@@ -50,10 +50,11 @@ async def lifespan(application: FastAPI):
     # 启动回扫先于轮询创建任务：经 poll_lock 串行，用当前规则补齐历史命中后再开轮
     rescan_task = asyncio.create_task(rescan.rescan_once(application))
     task = asyncio.create_task(poller.poll_loop(application))
+    visitor_task = asyncio.create_task(subscriptions.delivery_loop(CFG))
     yield
-    for t in (rescan_task, task):
+    for t in (rescan_task, task, visitor_task):
         t.cancel()
-    for t in (rescan_task, task):
+    for t in (rescan_task, task, visitor_task):
         with suppress(asyncio.CancelledError):
             await t
     await application.state.client.aclose()
@@ -89,6 +90,15 @@ async def index():
         f"<meta charset='utf-8'><body style=\"font-family:sans-serif;padding:40px\"><h2>503 面板未就绪</h2><p>{hint}</p></body>",
         status_code=503,
         headers={"Cache-Control": "no-cache"},
+    )
+
+
+@app.get("/service-worker.js")
+async def service_worker():
+    return FileResponse(
+        DIST_DIR / "service-worker.js",
+        media_type="application/javascript",
+        headers={"Cache-Control": "no-cache", "Service-Worker-Allowed": "/"},
     )
 
 

@@ -224,6 +224,23 @@ class Settings(BaseSettings):
     # 推文保留：未命中随窗口滚动清理，命中延长保留供节奏统计采样（重置节奏卡需要更长的样本）
     monitor_tweet_retention_days: int = 30
     monitor_hit_retention_days: int = 180
+    # 共用现有库调试时关闭启动清理，避免页面验收顺带删除历史；正式启动仍按保留期维护。
+    monitor_cleanup_on_startup: bool = True
+    # 访客订阅独立于管理员自用通知；缺省关闭，配置不全时不得请求权限或接收订阅。
+    monitor_public_subscriptions: bool = False
+    monitor_public_base_url: str = ""
+    monitor_subscription_secret: str = ""
+    monitor_smtp_host: str = ""
+    monitor_smtp_port: int = Field(default=587, ge=1, le=65535)
+    monitor_smtp_user: str = ""
+    monitor_smtp_password: str = ""
+    monitor_smtp_from: str = ""
+    monitor_smtp_starttls: bool = True
+    monitor_smtp_ssl: bool = False
+    monitor_vapid_public_key: str = ""
+    monitor_vapid_private_key: str = ""
+    monitor_vapid_subject: str = ""
+
     demo: bool = False
 
     # -- 数据源凭证（填了即启用） --

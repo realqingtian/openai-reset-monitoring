@@ -13,7 +13,7 @@ from app.integrations.sources import fetch_with_failover
 from app.repositories import notify_retry
 from app.repositories import polls as poll_repo
 from app.repositories import tweets as tweet_repo
-from app.services import account_meta, reset_forecast, source_watch
+from app.services import account_meta, forecast_history, reset_forecast, review_state, source_watch, subscriptions
 from app.services.classifier import classify_tweet
 from app.services.notify import dispatch_hit_dedup, push_extra
 
@@ -29,8 +29,9 @@ async def _retry_failed_pushes(app):
     cfg = app.state.cfg
     window_start = hours_ago_iso(cfg.lookback_hours)
     attempted = await notify_retry.attempted_tweet_ids()
+    suppressed = await review_state.suppressed_ids()
     for tw in await notify_retry.retry_candidates(window_start, attempted):
-        if tw.get("ai_verdict") == "miss":
+        if tw.get("ai_verdict") == "miss" or tw["id"] in suppressed:
             continue
         failed = [ch for ch, ok in (await notify_retry.latest_channel_results(tw["id"])).items() if not ok]
         if not failed:
@@ -92,6 +93,8 @@ async def run_poll(app) -> dict:
                     await dispatch_hit_dedup(cfg, app.state.client, tw, mres)
             log.info("账号 @%s 检查完成：来源=%s 新推文=%d 总抓取=%d", account, used, new_count, len(tweets))
         await reset_forecast.refresh(cfg, app.state.client)
+        await forecast_history.capture(cfg)
+        await subscriptions.queue_events(cfg)
     if summary["failed_accounts"]:
         summary["ok"] = False
         summary["errors"] = summary["errors"][:5]

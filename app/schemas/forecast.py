@@ -1,6 +1,6 @@
 """预测独立于公告命中：提供参考窗口、证据与不能预测的明确原因。"""
 
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -11,6 +11,15 @@ class ForecastEvidenceOut(BaseModel):
     url: str
     published_at: str
     analysis: Optional[str] = None
+
+
+class ResetPreviewOut(BaseModel):
+    id: str
+    account: str
+    text: str
+    url: str
+    published_at: str
+    timing: Literal["same_day", "unspecified"] = "unspecified"
 
 
 class ResetForecastOut(BaseModel):
@@ -31,3 +40,4 @@ class ResetForecastOut(BaseModel):
     evidence: list[ForecastEvidenceOut] = Field(default_factory=list)
     ai_reason: Optional[str] = None
     analyzed_at: Optional[str] = None
+    pending_preview: Optional[ResetPreviewOut] = None  # 保留下一次重置的来源预告，不因缺少时区而隐藏

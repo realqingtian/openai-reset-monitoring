@@ -11,10 +11,26 @@ nullable=True 语义一致，业务写入方自行保证必填列有值。唯一
 
 from app.db.database import Base
 from app.models.app_state import AppState
+from app.models.event_review import EventReview
+from app.models.forecast_history import ForecastEvaluation, ForecastSnapshot
 from app.models.notify_log import NotifyLog
 from app.models.poll import Poll
 from app.models.source_health import SourceHealth
+from app.models.subscription import PublicDelivery, PublicSubscription
 from app.models.translation import Translation
 from app.models.tweet import Tweet
 
-__all__ = ["AppState", "Base", "NotifyLog", "Poll", "SourceHealth", "Translation", "Tweet"]
+__all__ = [
+    "AppState",
+    "Base",
+    "EventReview",
+    "ForecastEvaluation",
+    "ForecastSnapshot",
+    "NotifyLog",
+    "Poll",
+    "PublicDelivery",
+    "PublicSubscription",
+    "SourceHealth",
+    "Translation",
+    "Tweet",
+]

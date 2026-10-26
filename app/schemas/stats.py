@@ -19,6 +19,8 @@ class StatsOut(BaseModel):
 
     total_hits: int = 0
     hits_30d: int = 0
+    completed_events_30d: int = 0
+    card_events_30d: int = 0
     avg_interval_hours: Optional[float] = None
     last_hit_at: Optional[str] = None
     next_expected_at: Optional[str] = None

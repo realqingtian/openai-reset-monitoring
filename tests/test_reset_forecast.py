@@ -25,6 +25,60 @@ def event(n, kind='quota', phase='completed', **extra):
 
 
 class ForecastLogicTests(unittest.TestCase):
+    def test_pending_day_preview_remains_visible_without_inventing_a_window(self):
+        source = row(1, NOW, 'Day 21/ But today is a reset.')
+        out = forecast.calculate([source], [event(1, phase='scheduled')], NOW, ai_used=True)
+        self.assertEqual(out.pending_preview.id, source['id'])
+        self.assertEqual(out.pending_preview.account, source['account'])
+        self.assertEqual(out.pending_preview.text, source['text'])
+        self.assertEqual(out.pending_preview.timing, 'same_day')
+        self.assertEqual(out.reason_code, 'timezone_unknown')
+        self.assertIsNone(out.window_start)
+        self.assertIsNone(out.window_end)
+        self.assertIsNone(out.expected_at)
+
+    def test_latest_untimed_preview_supersedes_an_older_exact_window(self):
+        rows = [row(1, NOW - timedelta(hours=2), 'Reset at 18:00 UTC'), row(2, NOW, 'A reset is coming soon')]
+        old = event(1, phase='scheduled', explicit=True, start=iso_utc(NOW + timedelta(hours=6)), end=iso_utc(NOW + timedelta(hours=7)))
+        out = forecast.calculate(rows, [old, event(2, phase='scheduled')], NOW)
+        self.assertEqual(out.pending_preview.id, '2')
+        self.assertEqual(out.pending_preview.timing, 'unspecified')
+        self.assertIsNone(out.window_start)
+
+    def test_completion_retires_preview_and_banked_grants_are_not_next_quota_resets(self):
+        rows = [row(1, NOW - timedelta(hours=2), 'Today is a reset.'), row(2, NOW), row(3, NOW, 'Banked reset arriving tomorrow')]
+        out = forecast.calculate(rows, [event(1, phase='scheduled'), event(2), event(3, 'card', 'scheduled')], NOW)
+        self.assertIsNone(out.pending_preview)
+        self.assertEqual(out.last_reset_at, iso_utc(NOW))
+
+    def test_fallback_preserves_day_pledge_when_ai_is_unavailable(self):
+        rows = [row(1, NOW, 'Today is a reset.')]
+        events = forecast.fallback_events(rows)
+        self.assertEqual(events[0]['phase'], 'scheduled')
+        out = forecast.calculate(rows, events, NOW)
+        self.assertEqual(out.pending_preview.timing, 'same_day')
+        self.assertEqual(out.sample_events, 0)
+
+    def test_future_dated_source_does_not_become_current_preview(self):
+        rows = [row(1, NOW + timedelta(days=1), 'Today is a reset.')]
+        out = forecast.calculate(rows, [event(1, phase='scheduled')], NOW)
+        self.assertIsNone(out.pending_preview)
+
+    def test_reset_day_pledge_does_not_advance_completion_clock_from_cached_ai(self):
+        rows = [row(1, NOW, 'Day 21/ But today is a reset.')]
+        out = forecast.calculate(rows, [event(1)], NOW, ai_used=True)
+        self.assertEqual(out.sample_events, 0)
+        self.assertIsNone(out.last_reset_at)
+        self.assertEqual(out.reason_code, 'timezone_unknown')
+
+    def test_new_ai_analysis_normalizes_reset_day_pledge_without_mutating_source(self):
+        rows = [row(1, NOW, 'It is reset day today. Tibo: Usage limits have been reset.')]
+        raw = json.dumps({'events': [event(1)]})
+        result = forecast.validate_analysis(raw, rows)
+        self.assertEqual(result[0]['phase'], 'scheduled')
+        self.assertIn('尚未明确确认完成', result[0]['reason'])
+        self.assertIn('have been reset', rows[0]['text'])
+
     def test_five_stable_events_produce_window_instead_of_exact_guarantee(self):
         rows = [row(n) for n in range(5)]
         out = forecast.calculate(rows, [event(n) for n in range(5)], NOW, ai_used=True)

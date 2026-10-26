@@ -9,9 +9,8 @@ from typing import Optional
 
 from app.core.config import Settings
 from app.core.timeutil import iso_utc
-from app.repositories import tweets as tweet_repo
 from app.schemas import CalendarEventOut, CalendarOut, CalendarPredictionOut
-from app.services import reset_forecast
+from app.services import events as event_service
 from app.services import stats as stats_service
 
 # 窗口缓冲：本地时区（如 UTC+8）的月份边界与 UTC 最多差 1 天，取 2 天冗余，
@@ -19,13 +18,6 @@ from app.services import stats as stats_service
 BUFFER = timedelta(days=2)
 # 事件卡只展示引言，全文经「在 X 上查看」直达
 TEXT_LIMIT = 240
-# 「发重置卡」特征词：命中任意即归此类，其余命中一律视为额度重置
-CARD_KEYWORDS = ("reset card", "banked reset")
-
-
-def _classify(text: str) -> str:
-    t = (text or "").lower()
-    return "card" if any(k in t for k in CARD_KEYWORDS) else "quota"
 
 
 async def assemble_calendar(year: int, month: int, cfg: Optional[Settings] = None) -> CalendarOut:
@@ -33,30 +25,26 @@ async def assemble_calendar(year: int, month: int, cfg: Optional[Settings] = Non
     start = datetime(year, month, 1, tzinfo=timezone.utc) - BUFFER
     nxt_year, nxt_month = (year + 1, 1) if month == 12 else (year, month + 1)
     end = datetime(nxt_year, nxt_month, 1, tzinfo=timezone.utc) + BUFFER
-    rows = await tweet_repo.matched_tweets_between(iso_utc(start), iso_utc(end))
     stats = await stats_service.assemble_stats(cfg)
-    analysis_rows = await reset_forecast.candidates(datetime.now(timezone.utc))
-    cache = (
-        await reset_forecast.read_cache() if cfg and cfg.ai.enabled and cfg.monitor_ai_forecast and not cfg.demo else {}
-    )
-    analysis = (
-        cache.get("events") if cache.get("fingerprint") == reset_forecast.fingerprint(analysis_rows, cfg) else None
-    )
-    phases = {
-        e["id"]: e for e in (analysis if isinstance(analysis, list) else reset_forecast.fallback_events(analysis_rows))
-    }
-    events = [
-        CalendarEventOut(
-            id=r["id"],
-            created_at=r["created_at"],
-            text=(r["text"] or "")[:TEXT_LIMIT],
-            url=r["url"],
-            kind=phases.get(r["id"], {}).get("kind", _classify(r["text"])),
-            phase=phases.get(r["id"], {}).get("phase", "unknown"),
+    independent = await event_service.all_events(cfg)
+    events = []
+    for event in independent:
+        published = event.completed_at or event.announced_at
+        if not iso_utc(start) <= published < iso_utc(end) or not event.evidence:
+            continue
+        source = event.evidence[-1]
+        events.append(
+            CalendarEventOut(
+                id=source.id,
+                event_id=event.id,
+                created_at=published,
+                text=source.text[:TEXT_LIMIT],
+                url=source.url,
+                kind=event.kind,
+                phase=event.phase,
+                evidence=event.evidence,
+            )
         )
-        for r in rows
-        if r.get("ai_verdict") != "miss"
-    ]
     events.sort(key=lambda e: e.created_at, reverse=True)
     # 旧 API 字段保留兼容，前端统一展示 forecast 窗口，避免各处自行外推。
     prediction = None

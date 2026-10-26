@@ -8,7 +8,7 @@ from app.core.config import Settings
 from app.core.timeutil import iso_utc
 from app.repositories import tweets as tweet_repo
 from app.schemas import DayHitOut, StatsOut
-from app.services import reset_forecast
+from app.services import events, reset_forecast
 
 # 采样上限：保留期内命中量级远小于此，仅作防御
 SAMPLE_LIMIT = 500
@@ -33,9 +33,15 @@ async def assemble_stats(cfg: Optional[Settings] = None) -> StatsOut:
     avg = forecast.median_interval_hours
     last = times[-1] if times else None
     daily = Counter(t.date().isoformat() for t in times)
+    independent = await events.all_events(cfg)
+    cutoff = iso_utc(now - timedelta(days=30))
     return StatsOut(
         total_hits=len(times),
         hits_30d=sum(1 for t in times if t >= now - timedelta(days=30)),
+        completed_events_30d=sum(
+            e.kind == "quota" and e.phase == "completed" and (e.completed_at or "") >= cutoff for e in independent
+        ),
+        card_events_30d=sum(e.kind == "card" and e.announced_at >= cutoff for e in independent),
         avg_interval_hours=round(avg, 1) if avg else None,
         last_hit_at=iso_utc(last) if last else None,
         next_expected_at=forecast.expected_at,

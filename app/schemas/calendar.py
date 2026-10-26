@@ -5,6 +5,7 @@ from typing import Optional
 from pydantic import BaseModel
 
 from app.schemas.forecast import ResetForecastOut
+from app.schemas.tweet import TweetOut
 
 
 class CalendarEventOut(BaseModel):
@@ -16,6 +17,8 @@ class CalendarEventOut(BaseModel):
     url: str
     kind: str  # quota=额度重置 card=发重置卡
     phase: str = "unknown"  # 不能凭公告年龄声称已生效
+    event_id: Optional[str] = None
+    evidence: list[TweetOut] = []
 
 
 class CalendarPredictionOut(BaseModel):

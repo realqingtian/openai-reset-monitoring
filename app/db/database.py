@@ -108,6 +108,16 @@ async def init_db(cfg: Optional[Settings] = None):
             await s.execute(text("ALTER TABLE tweets ADD COLUMN ai_verdict TEXT"))
         if "ai_reason" not in cols:
             await s.execute(text("ALTER TABLE tweets ADD COLUMN ai_reason TEXT"))
+        # 防御迁移⑥：人工复核、预测历史与访客订阅队列为新增表，由 create_all 幂等补建，不改既有列或回填假历史。
+        public_cols = [
+            row.name for row in (await s.execute(text("PRAGMA table_info(public_subscriptions)"))).fetchall()
+        ]
+        if "active_since" not in public_cols:
+            await s.execute(text("ALTER TABLE public_subscriptions ADD COLUMN active_since TEXT NOT NULL DEFAULT ''"))
+        # 共用业务库的调试实例只执行幂等迁移，不顺带触发历史保留期维护。
+        if cfg is not None and not cfg.monitor_cleanup_on_startup:
+            await s.commit()
+            return
         # 日志表只保留 30 天，防止长期运行无限膨胀
         cutoff = hours_ago_iso(24 * 30)
         await s.execute(text("DELETE FROM polls WHERE ts < :cutoff"), {"cutoff": cutoff})

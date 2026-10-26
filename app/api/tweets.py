@@ -1,11 +1,12 @@
 """推文查询路由。"""
 
-from typing import Optional
+from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, Query, Request
 
 from app.core.security import optional_login
 from app.schemas import TweetOut, UnifiedResponse, ok
+from app.schemas.event import EventKind, EventPhase
 from app.services import tweets as tweet_service
 
 router = APIRouter()
@@ -17,18 +18,25 @@ async def api_tweets(
     hours: float = Query(default=None, gt=0, le=720),
     limit: Optional[int] = Query(default=None, gt=0, le=100),
     before: Optional[str] = Query(default=None, min_length=1, max_length=128),
+    kind: Annotated[Optional[EventKind], Query()] = None,
+    phase: Annotated[Optional[EventPhase], Query()] = None,
+    account: Optional[str] = Query(default=None, min_length=1, max_length=100),
     user: Optional[str] = Depends(optional_login),
 ):
     # 匿名只读口径：未登录最多看 24 小时窗口，传更大的 hours 也按 24 钳制；登录后按配置与参数放宽
     cfg = request.app.state.cfg
     if user is None:
         hours = min(hours if hours is not None else cfg.lookback_hours, 24.0)
-    return ok(await tweet_service.list_tweets(hours, cfg, limit, before))
+    return ok(await tweet_service.list_tweets(hours, cfg, limit, before, kind, phase, account))
 
 
 @router.get("/api/hits", response_model=UnifiedResponse[list[TweetOut]])
 async def api_hits(
+    request: Request,
     limit: int = Query(default=100, gt=0, le=500),
     before: Optional[str] = Query(default=None, min_length=1, max_length=128),
+    kind: Annotated[Optional[EventKind], Query()] = None,
+    phase: Annotated[Optional[EventPhase], Query()] = None,
+    account: Optional[str] = Query(default=None, min_length=1, max_length=100),
 ):
-    return ok(await tweet_service.list_hits(limit, before))
+    return ok(await tweet_service.list_hits(limit, before, request.app.state.cfg, kind, phase, account))

@@ -12,7 +12,7 @@ from app.core.timeutil import hours_ago_iso
 from app.integrations.notifiers import dispatch_hit, send_test
 from app.repositories import tweets as tweet_repo
 from app.schemas import TestNotifyResult
-from app.services import account_meta
+from app.services import account_meta, review_state
 from app.services.translate import translation_for_push
 
 log = logging.getLogger("notify")
@@ -51,7 +51,7 @@ async def dispatch_hit_dedup(
     全部成功才标记已推送，部分失败留给每轮轮询开头的补推扫描。
     返回是否实际发起了推送。
     """
-    if tw.get("ai_verdict") == "miss":
+    if tw.get("ai_verdict") == "miss" or tw["id"] in await review_state.suppressed_ids():
         return False
     dup_reason: Optional[str] = None
     if await tweet_repo.hash_already_notified(content_hash(tw["text"]), tw["id"]):

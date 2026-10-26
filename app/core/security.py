@@ -52,8 +52,11 @@ def check_credentials(cfg, username: Optional[str], password: Optional[str]) -> 
 
 
 def require_login(request: Request, authorization: Optional[str] = Header(default=None)) -> str:
-    """保护性依赖：未登录（或 token 失效）一律 401，走统一异常包体。"""
-    user = bearer_identity(request.app.state.cfg, authorization)
+    """口令留空时按配置放行操作；启用鉴权后仍严格校验 JWT。"""
+    cfg = request.app.state.cfg
+    if not cfg.auth_enabled:
+        return cfg.monitor_admin_user
+    user = bearer_identity(cfg, authorization)
     if not user:
         raise BizError(401, "需要登录（Authorization: Bearer <token>，经 POST /api/login 获取）")
     return user

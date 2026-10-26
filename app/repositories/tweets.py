@@ -72,7 +72,11 @@ async def matched_tweets(limit: int = 100) -> list[dict[str, Any]]:
 
 
 async def tweet_page(
-    limit: Optional[int], before: Optional[str], since: Optional[str] = None, matched: bool = False
+    limit: Optional[int],
+    before: Optional[str],
+    since: Optional[str] = None,
+    matched: bool = False,
+    identifiers: Optional[list[str]] = None,
 ) -> list[dict[str, Any]]:
     """用发布时间与 ID 共同定位下一页，避免同秒发帖或新帖插入导致重复、漏帖。"""
     async with session_factory() as s:
@@ -81,6 +85,8 @@ async def tweet_page(
             stmt = stmt.where(Tweet.created_at >= since)
         if matched:
             stmt = stmt.where(Tweet.matched == 1)
+        if identifiers is not None:
+            stmt = stmt.where(Tweet.id.in_(identifiers))
         if before is not None:
             anchor = await s.get(Tweet, before)
             if anchor is None:
